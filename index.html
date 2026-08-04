@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WAND Digital Asset</title>
+    <link rel="stylesheet" href="resources/app.css" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" type="image/x-icon" href="resources/favicon.ico" />
+    <script type="text/javascript" src="dependencies/jquery-3.7.0.min.js"></script>
+    <script type="text/javascript" src="dependencies/mustache.min.js"></script>
+    <script type="text/javascript" src="dependencies/dexie.min.js"></script>
+    <script type="text/javascript" src="dependencies/math.min.js"></script>
+    <script type="text/javascript" src="dependencies/lodash.min.js"></script>
+    <script type="text/javascript" src="dependencies/wandLib.js"></script>
+    <script type="text/javascript" src="js/imageStoreManager.js"></script>
+    <script type="text/javascript" src="js/nutritionLabel.js"></script>
+    <script type="text/javascript" src="js/integration.js"></script>
+    <script type="text/javascript" src="js/brandManager.js"></script>
+    <script type="text/javascript" src="js/menuLayout.js"></script>
+    <script type="text/javascript" src="js/app.js"></script>
+
+</head>
+
+<body>
+    <!-- info -->
+    <div style="display: none">
+        <div id="wand">
+            <span id="apiKey" class="Text Text-22509">ZDE0OTNkMjItNGE5My00ZjQ5LWE4ZDMtMzI2NDBhMGZlYjYw</span>
+            <!--required for Windows devices-->
+            <span id="storeKey" class="Text Text-XXXX"></span>
+        </div>
+    </div>
+    <div class="background"></div>
+
+    <!--asset wrapper-->
+    <div id="target" class="asset-wrapper">
+        <!-- Welcome Screen -->
+        <div class="home" onclick="">
+            <div class="welcome-header">
+                <img src="./media/header_transparent.png" alt="Welcome">
+            </div>
+            <div class="cards-grid">
+                <div class="feature-card" id="card-happening">
+                    <div class="card-icon">
+                        <img src="./media/icon_whatshappening.png" alt="What's Happening">
+                    </div>
+                    <div class="card-label">What's Happening<br>This Month</div>
+                </div>
+                <div class="feature-card" id="card-weeklymenu">
+                    <div class="card-icon">
+                        <img src="./media/icon_weeklymenu.png" alt="Weekly Menu">
+                    </div>
+                    <div class="card-label">What's on the Menu</div>
+                </div>
+                <div class="feature-card" id="card-connectwithus">
+                    <div class="card-icon">
+                        <img src="./media/icon_connectwithus.png" alt="Connect with Us">
+                    </div>
+                    <div class="card-label">Connect with Us</div>
+                </div>
+                <div class="feature-card" id="card-vote">
+                    <div class="card-icon">
+                        <img src="./media/icon_youpickit.png" alt="You Pick It">
+                    </div>
+                    <div class="card-label">Vote</div>
+                </div>
+                <div class="feature-card" id="card-ambassador">
+                    <div class="card-icon">
+                        <img src="./media/icon_meetambasador.png" alt="Meet Your Ingredient Ambassadors">
+                    </div>
+                    <div class="card-label">Meet Your Ingredient<br>Ambassadors</div>
+                </div>
+                <div class="feature-card" id="card-foodwithpurpose">
+                    <div class="card-icon">
+                        <img src="./media/icon_fwp.png" alt="Food with Purpose">
+                    </div>
+                    <div class="card-label">Food with Purpose</div>
+                </div>
+            </div>
+            <div class="eurest-logo">
+                <img src="./media/eurest_lockup.png" alt="Eurest">
+            </div>
+        </div>
+
+        <!-- Weekly Menu Page -->
+        <div id="weekly_menu_page" class="page">
+            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+            <div class="logo-wrapper">
+                <div class="header-wrapper">
+                    <div class="header">what's on the menu?</div>
+                    <div class="sub-header">tap an icon below</div>
+                </div>
+                <div class="brand-list"></div>
+            </div>
+        </div>
+
+        <!-- What's Happening Page -->
+        <div id="happening_page" class="page">
+            <button class="floating-nav-btn floating-nav-home" style="display: none;" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+            <div id="happening-content-background" class="cms-image">
+                <img src="">
+            </div>
+        </div>
+
+        <!-- Beverage Page -->
+        <div id="beverage_page" class="page" style="display: none;">
+            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+            <div id="beverage-content-background" class="content-background">
+                <img src="">
+            </div>
+        </div>
+
+        <!-- Vote Page -->
+        <div id="vote_page" class="page" style="display: none;">
+            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+           <div id="vote-content-background" class="frame-content">
+                <img src="">
+            </div>
+        </div>
+
+        <!-- Fit Page -->
+        <div id="fit_page" class="page" style="display: none;">
+            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+            <div id="fit-content-background" class="content-background">
+                <img src="">
+            </div>
+        </div>
+
+        <!-- Connect with Us Page -->
+        <div id="connectwithus_page" class="page" style="display: none;">
+            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+            <div id="connectwithus-content-background" class="cms-image">
+                <img src="">
+            </div>
+        </div>
+
+        <!-- Meet Your Ingredient Ambassadors Page -->
+        <div id="ambassador_page" class="page" style="display: none;">
+            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+            <div id="ambassador-content-background" class="cms-image">
+                <img src="">
+            </div>
+        </div>
+
+        <!-- Food with Purpose Page -->
+        <div id="foodwithpurpose_page" class="page" style="display: none;">
+            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
+                <img src="./media/homebutton.png" alt="Home">
+            </button>
+            <div id="foodwithpurpose-content-background" class="cms-image">
+                <img src="">
+            </div>
+
+        </div>
+
+        <div onclick="hideFallback()" class="fallback-wrapper">
+            <img id="image" src="">
+        </div>
+
+        <!--executable scripts-->
+        <script type="text/javascript" src="js/inactivityManager.js"></script>
+        <script type="text/javascript" src="js/swipeGestureManager.js"></script>
+        <script type="text/javascript" src="js/init.js"></script>
+</body>
+
+</html>

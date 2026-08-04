@@ -214,6 +214,19 @@ $(document).ready(function () {
         };
         development = true;
     }
+
+    if (development) {
+        $('body').attr('data-mode', 'development');
+    }
+
+    if ((typeof development !== 'undefined' && development) || (typeof isPreview !== 'undefined' && isPreview)) {
+        $(document).off('keydown.hotspotDebug').on('keydown.hotspotDebug', function (e) {
+            if (e.altKey && (e.key === 'h' || e.key === 'H')) {
+                window.dispatchEvent(new CustomEvent('windowToggleHotspotDebug'));
+            }
+        });
+    }
+
     "";
     heartbeatKey = "".concat(AssetConfiguration.SKey, "_leaderHeartbeat(" + version + ")");
     instanceId = AssetConfiguration.AZid;
@@ -478,6 +491,10 @@ function getRandomCheckInterval() {
 function goHome(event) {
     event.stopPropagation();
     console.log('Home button clicked');
+    if (window.menuLayout && typeof menuLayout.navigateToLayer === 'function') {
+        menuLayout.navigateToLayer(1, true);
+        return;
+    }
     $('.page').hide();
     $('.home').show();
     if (typeof InactivityManager !== 'undefined') {

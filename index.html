@@ -17,7 +17,6 @@
     <script type="text/javascript" src="js/imageStoreManager.js"></script>
     <script type="text/javascript" src="js/nutritionLabel.js"></script>
     <script type="text/javascript" src="js/integration.js"></script>
-    <script type="text/javascript" src="js/brandManager.js"></script>
     <script type="text/javascript" src="js/menuLayout.js"></script>
     <script type="text/javascript" src="js/app.js"></script>
 
@@ -38,136 +37,20 @@
     <div id="target" class="asset-wrapper">
         <!-- Welcome Screen -->
         <div class="home" onclick="">
-            <div class="welcome-header">
-                <img src="./media/header_transparent.png" alt="Welcome">
+            <div class="welcome-header generic-header">
+                <div class="generic-kicker">WAND CMS Touch Experience</div>
+                <div class="generic-title">Configurable Touch Template</div>
+                <div class="generic-subtitle">Tap configured regions to navigate</div>
             </div>
-            <div class="cards-grid">
-                <div class="feature-card" id="card-happening">
-                    <div class="card-icon">
-                        <img src="./media/icon_whatshappening.png" alt="What's Happening">
-                    </div>
-                    <div class="card-label">What's Happening<br>This Month</div>
-                </div>
-                <div class="feature-card" id="card-weeklymenu">
-                    <div class="card-icon">
-                        <img src="./media/icon_weeklymenu.png" alt="Weekly Menu">
-                    </div>
-                    <div class="card-label">What's on the Menu</div>
-                </div>
-                <div class="feature-card" id="card-connectwithus">
-                    <div class="card-icon">
-                        <img src="./media/icon_connectwithus.png" alt="Connect with Us">
-                    </div>
-                    <div class="card-label">Connect with Us</div>
-                </div>
-                <div class="feature-card" id="card-vote">
-                    <div class="card-icon">
-                        <img src="./media/icon_youpickit.png" alt="You Pick It">
-                    </div>
-                    <div class="card-label">Vote</div>
-                </div>
-                <div class="feature-card" id="card-ambassador">
-                    <div class="card-icon">
-                        <img src="./media/icon_meetambasador.png" alt="Meet Your Ingredient Ambassadors">
-                    </div>
-                    <div class="card-label">Meet Your Ingredient<br>Ambassadors</div>
-                </div>
-                <div class="feature-card" id="card-foodwithpurpose">
-                    <div class="card-icon">
-                        <img src="./media/icon_fwp.png" alt="Food with Purpose">
-                    </div>
-                    <div class="card-label">Food with Purpose</div>
-                </div>
-            </div>
-            <div class="eurest-logo">
-                <img src="./media/eurest_lockup.png" alt="Eurest">
+            <div class="generic-home-guide">
+                <div class="guide-badge">1080 x 1920</div>
+                <p>Use CMS click areas on layer 1 to define touch zones for this landing page.</p>
             </div>
         </div>
 
-        <!-- Weekly Menu Page -->
-        <div id="weekly_menu_page" class="page">
-            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-            <div class="logo-wrapper">
-                <div class="header-wrapper">
-                    <div class="header">what's on the menu?</div>
-                    <div class="sub-header">tap an icon below</div>
-                </div>
-                <div class="brand-list"></div>
-            </div>
-        </div>
-
-        <!-- What's Happening Page -->
-        <div id="happening_page" class="page">
-            <button class="floating-nav-btn floating-nav-home" style="display: none;" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-            <div id="happening-content-background" class="cms-image">
-                <img src="">
-            </div>
-        </div>
-
-        <!-- Beverage Page -->
-        <div id="beverage_page" class="page" style="display: none;">
-            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-            <div id="beverage-content-background" class="content-background">
-                <img src="">
-            </div>
-        </div>
-
-        <!-- Vote Page -->
-        <div id="vote_page" class="page" style="display: none;">
-            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-           <div id="vote-content-background" class="frame-content">
-                <img src="">
-            </div>
-        </div>
-
-        <!-- Fit Page -->
-        <div id="fit_page" class="page" style="display: none;">
-            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-            <div id="fit-content-background" class="content-background">
-                <img src="">
-            </div>
-        </div>
-
-        <!-- Connect with Us Page -->
-        <div id="connectwithus_page" class="page" style="display: none;">
-            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-            <div id="connectwithus-content-background" class="cms-image">
-                <img src="">
-            </div>
-        </div>
-
-        <!-- Meet Your Ingredient Ambassadors Page -->
-        <div id="ambassador_page" class="page" style="display: none;">
-            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-            <div id="ambassador-content-background" class="cms-image">
-                <img src="">
-            </div>
-        </div>
-
-        <!-- Food with Purpose Page -->
-        <div id="foodwithpurpose_page" class="page" style="display: none;">
-            <button class="floating-nav-btn floating-nav-home" aria-label="Go home">
-                <img src="./media/homebutton.png" alt="Home">
-            </button>
-            <div id="foodwithpurpose-content-background" class="cms-image">
-                <img src="">
-            </div>
-
-        </div>
+        <button id="global-home-btn" class="floating-nav-btn floating-nav-home" style="display:none;" aria-label="Go home">
+            <img src="./media/homebutton.png" alt="Home">
+        </button>
 
         <div onclick="hideFallback()" class="fallback-wrapper">
             <img id="image" src="">

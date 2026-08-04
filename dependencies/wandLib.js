@@ -49,6 +49,12 @@ function setupOptionsMenu() {
       </svg>
       <span>Expand</span>
     </div>
+        <div class="dropdown-item" data-action="toggle-hotspots">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.2 0-4 1.8-4 4m8 0c0 2.2-1.8 4-4 4m0-12C7 4 4 7 4 12s3 8 8 8 8-3 8-8-3-8-8-8z" />
+            </svg>
+            <span>Toggle Hotspot Debug</span>
+        </div>
   `;
     } else {
         dropdownMenu.innerHTML = `
@@ -64,6 +70,12 @@ function setupOptionsMenu() {
       </svg>
       <span>Reset</span>
     </div>
+        <div class="dropdown-item" data-action="toggle-hotspots">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.2 0-4 1.8-4 4m8 0c0 2.2-1.8 4-4 4m0-12C7 4 4 7 4 12s3 8 8 8 8-3 8-8-3-8-8-8z" />
+            </svg>
+            <span>Toggle Hotspot Debug</span>
+        </div>
   `;
     }
 
@@ -147,6 +159,7 @@ function setupOptionsMenu() {
         e.stopPropagation();
         const action = item.getAttribute('data-action');
         const windowToggleScale = new CustomEvent('windowToggleScale');
+        const windowToggleHotspotDebug = new CustomEvent('windowToggleHotspotDebug');
         switch (action) {
             case 'refresh':
                 document.refreshAsset();
@@ -160,6 +173,9 @@ function setupOptionsMenu() {
                 break;
             case 'expand':
                 window.dispatchEvent(windowToggleScale);
+                break;
+            case 'toggle-hotspots':
+                window.dispatchEvent(windowToggleHotspotDebug);
                 break;
         }
         hideCustomMenu();

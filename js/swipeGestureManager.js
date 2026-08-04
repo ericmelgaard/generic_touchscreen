@@ -169,6 +169,11 @@ const SwipeGestureManager = (function() {
       closeNutritionModal();
     }
 
+    if (window.menuLayout && typeof menuLayout.navigateToLayer === 'function') {
+      menuLayout.navigateToLayer(1, true);
+      return;
+    }
+
     if (typeof goHome === 'function') {
       const mockEvent = {
         stopPropagation: function() {}

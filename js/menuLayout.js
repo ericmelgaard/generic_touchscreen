@@ -9,13 +9,35 @@ var IMSintegration;
             this.timeOuts = [];
             this.playlist = false;
             this.isRotating = false;
-             this.navigationHistory = [];
+            this.navigationHistory = [];
+            this.currentLayerId = 1;
+            this.hotspotItems = [];
+            this.hotspotDebugEnabled = false;
+            this.layerPageMap = {
+                1: "home"
+            };
+            this.pageLayerMap = {};
         }
         MenuLayout.prototype.init = function (IMSItems, IMSProducts, IMSSettings, integrationItems, API) {
             var _this = this;
             if (!API) {
                 return;
             }
+            this.buildPageLayerMap();
+
+            try {
+                this.configureHomeButtonAsset();
+            } catch (e) {
+                console.error("Error configuring home button asset: ", e);
+            }
+
+            try {
+                this.initHotspotDebugState();
+                this.bindHotspotDebugToggle();
+            } catch (e) {
+                console.error("Error setting hotspot debug state: ", e);
+            }
+
             // Optional image-driven content injector. Remove this call if the template does not use imageStoreManager.
             try {
                 this.initImageStoreManager();
@@ -40,20 +62,18 @@ var IMSintegration;
                 console.error("Error in MenuLayout handleLayout: ", e);
                 IMSintegration.Integration.prototype.showConnect(true, "Red", "handleLayout", e, "error");
             }
+
             try {
-                var filteredIntegrationItems = validateItems(integrationItems, "", "", "");
-                var brandCount = brandManager.init(filteredIntegrationItems, null);
-                if (brandCount === 0) {
-                    $('#card-weeklymenu').hide();
-                } else {
-                    $('#card-weeklymenu').show();
-                }
+                this.registerLayersFromItems(integrationItems || []);
             } catch (e) {
-                console.error("Error in BrandManager init: ", e);
-                IMSintegration.Integration.prototype.showConnect(true, "Red", "brandManager", e, "error");
-                $('#card-weeklymenu').hide();
+                console.error("Error in MenuLayout registerLayersFromItems: ", e);
             }
 
+            try {
+                this.setupLayerHotspots(integrationItems || []);
+            } catch (e) {
+                console.error("Error in MenuLayout setupLayerHotspots: ", e);
+            }
             //optional starts
             // try {
             //     this.rotateEles();
@@ -81,51 +101,8 @@ var IMSintegration;
             window.ImageStoreManager.init();
         };
         MenuLayout.prototype.handleLayout = function (IMSSettings) {
-            var _this = this;
             // Set up navigation buttons
             this.setupNavigationButtons();
-
-            // Welcome screen card navigation
-            $('#card-weeklymenu').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('weekly_menu_page');
-            });
-
-            // Feature cards - navigate to static content pages
-            $('#card-happening').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('happening_page');
-            });
-
-            $('#card-vote').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('vote_page');
-            });
-
-            $('#card-fit').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('fit_page');
-            });
-
-            $('#card-mezze').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('mezze_page');
-            });
-
-            $('#card-connectwithus').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('connectwithus_page');
-            });
-
-            $('#card-ambassador').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('ambassador_page');
-            });
-
-            $('#card-foodwithpurpose').on('click', function (e) {
-                e.stopPropagation();
-                _this.navigateToPage('foodwithpurpose_page');
-            });
 
             return true;
         };
@@ -134,6 +111,98 @@ var IMSintegration;
             if (!IMSProducts || IMSProducts.length === 0) {
                 return;
             }
+        };
+
+        MenuLayout.prototype.setupLayerHotspots = function (items) {
+            var _this = this;
+            this.hotspotItems = Array.isArray(items) ? items : [];
+            $('.cms-click-area').remove();
+
+            this.hotspotItems.forEach(function (item) {
+                var clickArea = item && item.clickArea ? item.clickArea : null;
+                if (!clickArea || clickArea.sourceLayer === null || clickArea.sourceLayer === undefined || !clickArea.targetLayer) {
+                    return;
+                }
+
+                var sourceLayer = parseInt(clickArea.sourceLayer, 10);
+                var targetLayer = parseInt(clickArea.targetLayer, 10);
+                if (isNaN(sourceLayer) || isNaN(targetLayer)) {
+                    return;
+                }
+
+                var pageId = sourceLayer === 1 ? 'home' : _this.resolvePageIdForLayer(sourceLayer);
+                var $container = sourceLayer === 1 ? $('.home').first() : $('#' + pageId);
+
+                if (!$container.length) {
+                    return;
+                }
+
+                if ($container.css('position') === 'static') {
+                    $container.css('position', 'relative');
+                }
+
+                var $hotspot = $('<button type="button" class="cms-click-area" aria-label="Navigate" />');
+                $hotspot.css({
+                    left: (clickArea.x / 1080 * 100) + '%',
+                    top: (clickArea.y / 1920 * 100) + '%',
+                    width: (clickArea.width / 1080 * 100) + '%',
+                    height: (clickArea.height / 1920 * 100) + '%'
+                });
+
+                if (typeof development !== 'undefined' && development) {
+                    var label = clickArea.name || item.name || clickArea.id || '';
+                    if (label) {
+                        $hotspot.attr('title', label);
+                    }
+                }
+
+                $hotspot.attr('data-source-layer', sourceLayer);
+                $hotspot.attr('data-target-layer', targetLayer);
+                $hotspot.attr('data-debug-label', 'L' + sourceLayer + ' -> L' + targetLayer);
+
+                $hotspot.on('click touchstart', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    _this.navigateToLayer(targetLayer);
+                });
+
+                $container.append($hotspot);
+            });
+        };
+
+        MenuLayout.prototype.registerLayersFromItems = function (items) {
+            var _this = this;
+            if (!Array.isArray(items)) {
+                return;
+            }
+
+            var seenLayers = {};
+
+            items.forEach(function (item) {
+                var clickArea = item && item.clickArea ? item.clickArea : null;
+                if (!clickArea) {
+                    return;
+                }
+
+                var layerCandidates = [clickArea.sourceLayer, clickArea.targetLayer];
+                layerCandidates.forEach(function (candidate) {
+                    var layerId = parseInt(candidate, 10);
+                    if (isNaN(layerId) || layerId <= 1 || seenLayers[layerId]) {
+                        return;
+                    }
+
+                    seenLayers[layerId] = true;
+
+                    var pageId = _this.resolvePageIdForLayer(layerId);
+                    if (pageId) {
+                        _this.registerLayerPage(layerId, pageId);
+                        return;
+                    }
+
+                    var createdPageId = _this.ensureCmsLayerPage(layerId);
+                    _this.registerLayerPage(layerId, createdPageId);
+                });
+            });
         };
         MenuLayout.prototype.fillDynamic = function (IMSItems, integrationItems) {
             console.log("fillDynamic: Ready for static promotional content");
@@ -178,32 +247,22 @@ var IMSintegration;
         };
 
         MenuLayout.prototype.returnHome = function () {
-            var _this = this;
-
             closeNutritionModal();
-
-            $('.page').hide();
-            $('.home').show();
-
-            this.navigationHistory = [];
-
-            this.updateNavigationButtons();
-
-            window.scrollTo(0, 0);
-            
-            // Pause inactivity timer when on home screen
-            if (typeof InactivityManager !== 'undefined') {
-                InactivityManager.pause();
-            }
+            this.navigateToLayer(1, true);
         };
 
         MenuLayout.prototype.setupNavigationButtons = function () {
             var _this = this;
 
+            $('#global-home-btn').off('click').on('click', function (e) {
+                e.stopPropagation();
+                _this.navigateToLayer(1, true);
+            });
+
             // Home button - returns to welcome screen from weekly menu
             $(document).on('click', '.floating-nav-home', function (e) {
                 e.stopPropagation();
-                _this.navigateToWelcome();
+                _this.navigateToLayer(1, true);
             });
 
             // Edge back button - returns to menu selection from brand pages
@@ -215,6 +274,10 @@ var IMSintegration;
         };
 
         MenuLayout.prototype.navigateToPage = function (pageId) {
+            if (!pageId || !$('#' + pageId).length) {
+                return;
+            }
+
             var currentPage = $('.page:visible').attr('id');
 
             // Add current page to history if there's one visible
@@ -232,9 +295,9 @@ var IMSintegration;
             // Show the target page
             $('#' + pageId).show();
 
+            this.currentLayerId = this.pageLayerMap[pageId] || this.currentLayerId;
+
             // Reset scroll position of the page we're navigating TO
-            $('#' + pageId + ' .section-wrapper').scrollTop(0);
-            $('#' + pageId + ' .brand-list').scrollTop(0);
             window.scrollTo(0, 0);
 
             // Update navigation buttons
@@ -244,6 +307,37 @@ var IMSintegration;
             if (typeof InactivityManager !== 'undefined') {
                 InactivityManager.resume();
             }
+        };
+
+        MenuLayout.prototype.navigateToLayer = function (layerId, clearHistory) {
+            layerId = parseInt(layerId, 10);
+            if (isNaN(layerId)) {
+                return;
+            }
+
+            if (layerId === 1) {
+                this.navigateToWelcome();
+                return;
+            }
+
+            var pageId = this.resolvePageIdForLayer(layerId);
+
+            if (!pageId) {
+                if (this.shouldShowDevPlaceholder()) {
+                    pageId = this.ensureDevPlaceholderPage(layerId);
+                    this.registerLayerPage(layerId, pageId);
+                } else {
+                    return;
+                }
+            }
+
+            this.currentLayerId = layerId;
+
+            if (clearHistory) {
+                this.navigationHistory = [];
+            }
+
+            this.navigateToPage(pageId);
         };
 
         MenuLayout.prototype.navigateBack = function () {
@@ -256,6 +350,8 @@ var IMSintegration;
 
                 // Show previous page
                 $('#' + previousPage).show();
+
+                this.currentLayerId = this.pageLayerMap[previousPage] || this.currentLayerId;
 
                 // Update navigation buttons
                 this.updateNavigationButtons();
@@ -274,6 +370,7 @@ var IMSintegration;
 
             // Clear navigation history
             this.navigationHistory = [];
+            this.currentLayerId = 1;
 
             // Update navigation buttons
             this.updateNavigationButtons();
@@ -293,6 +390,7 @@ var IMSintegration;
 
             // Hide all floating nav buttons first
             $('.floating-nav-back, .floating-nav-home').hide();
+            $('#global-home-btn').hide();
 
             if (isOnWelcome) {
                 // On welcome screen - no navigation buttons
@@ -301,7 +399,167 @@ var IMSintegration;
 
             if (currentPage) {
                 // On any non-home page - show home button
-                $('.floating-nav-home').show();
+                $('#global-home-btn').show();
+            }
+        };
+
+        MenuLayout.prototype.registerLayerPage = function (layerId, pageId) {
+            layerId = parseInt(layerId, 10);
+            if (isNaN(layerId) || !pageId) {
+                return;
+            }
+            this.layerPageMap[layerId] = pageId;
+            this.pageLayerMap[pageId] = layerId;
+        };
+
+        MenuLayout.prototype.resolvePageIdForLayer = function (layerId) {
+            var direct = this.layerPageMap[layerId];
+            if (direct && direct !== "home" && $('#' + direct).length) {
+                return direct;
+            }
+
+            var nestedName = 'layer_' + layerId + '_page';
+            if ($('#' + nestedName).length) {
+                return nestedName;
+            }
+
+            return null;
+        };
+
+        MenuLayout.prototype.buildPageLayerMap = function () {
+            var _this = this;
+            Object.keys(this.layerPageMap).forEach(function (layerKey) {
+                var layerId = parseInt(layerKey, 10);
+                var pageId = _this.layerPageMap[layerId];
+                if (pageId && pageId !== 'home') {
+                    _this.pageLayerMap[pageId] = layerId;
+                }
+            });
+        };
+
+        MenuLayout.prototype.shouldShowDevPlaceholder = function () {
+            if (typeof development !== 'undefined' && development) {
+                return true;
+            }
+            if (typeof isPreview !== 'undefined' && isPreview) {
+                return true;
+            }
+            return false;
+        };
+
+        MenuLayout.prototype.ensureDevPlaceholderPage = function (layerId) {
+            var pageId = 'layer_' + layerId + '_page';
+            if ($('#' + pageId).length) {
+                return pageId;
+            }
+
+            var html = [
+                '<div id="' + pageId + '" class="page layer-placeholder-page" style="display:none;">',
+                '  <div class="layer-placeholder-content">',
+                '    <h2>Layer ' + layerId + ' Placeholder</h2>',
+                '    <p>No page content is mapped for this layer in the current data.</p>',
+                '  </div>',
+                '</div>'
+            ].join('');
+
+            $('#target.asset-wrapper').append(html);
+            return pageId;
+        };
+
+        MenuLayout.prototype.ensureCmsLayerPage = function (layerId) {
+            var pageId = 'layer_' + layerId + '_page';
+            if ($('#' + pageId).length) {
+                return pageId;
+            }
+
+            var pageHtml = [
+                '<div id="' + pageId + '" class="page cms-layer-page" style="display:none;">',
+                '  <button class="edge-nav-back" aria-label="Back">',
+                '    <div class="edge-nav-chevron">',
+                '      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">',
+                '        <polyline points="15 18 9 12 15 6"></polyline>',
+                '      </svg>',
+                '    </div>',
+                '    <span class="edge-nav-label">Back</span>',
+                '  </button>',
+                '  <div id="layer_' + layerId + '_content_background" class="cms-image layer-content-image">',
+                '    <img src="" alt="Layer ' + layerId + ' content">',
+                '  </div>',
+                '</div>'
+            ].join('');
+
+            $('#target.asset-wrapper').append(pageHtml);
+            return pageId;
+        };
+
+        MenuLayout.prototype.initHotspotDebugState = function () {
+            var saved = null;
+            try {
+                saved = localStorage.getItem('wandHotspotDebugEnabled');
+            } catch (e) {
+                saved = null;
+            }
+
+            var enableByDefault = false;
+            if (typeof development !== 'undefined' && development) {
+                enableByDefault = true;
+            }
+            if (typeof isPreview !== 'undefined' && isPreview) {
+                enableByDefault = true;
+            }
+
+            if (saved === 'true' || saved === 'false') {
+                this.hotspotDebugEnabled = saved === 'true';
+            } else {
+                this.hotspotDebugEnabled = enableByDefault;
+            }
+
+            this.applyHotspotDebugState();
+        };
+
+        MenuLayout.prototype.bindHotspotDebugToggle = function () {
+            var _this = this;
+            if (this.hotspotDebugBound) {
+                return;
+            }
+            this.hotspotDebugBound = true;
+
+            window.addEventListener('windowToggleHotspotDebug', function () {
+                _this.setHotspotDebug(!_this.hotspotDebugEnabled);
+            });
+        };
+
+        MenuLayout.prototype.applyHotspotDebugState = function () {
+            if (this.hotspotDebugEnabled) {
+                $('body').attr('data-hotspot-debug', 'true');
+            } else {
+                $('body').removeAttr('data-hotspot-debug');
+            }
+        };
+
+        MenuLayout.prototype.setHotspotDebug = function (enabled) {
+            this.hotspotDebugEnabled = Boolean(enabled);
+            try {
+                localStorage.setItem('wandHotspotDebugEnabled', this.hotspotDebugEnabled ? 'true' : 'false');
+            } catch (e) {
+                // ignore storage failures
+            }
+            this.applyHotspotDebugState();
+        };
+
+        MenuLayout.prototype.configureHomeButtonAsset = function () {
+            var candidates = [
+                window.homeButtonUrl,
+                window.homeButtonAssetUrl,
+                window.WAND_HOME_BUTTON_URL,
+                typeof AssetConfiguration !== 'undefined' && AssetConfiguration ? AssetConfiguration.HomeButtonUrl : null
+            ];
+            var source = candidates.find(function (each) {
+                return typeof each === 'string' && each.trim() !== '';
+            });
+
+            if (source) {
+                $('#global-home-btn img').attr('src', source);
             }
         };
 

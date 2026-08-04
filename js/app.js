@@ -367,6 +367,7 @@ var IMSintegration;
                 if (each.enticingDescription) {
                     each.description = each.enticingDescription;
                 }
+                each.clickArea = normalizeClickArea(each.clickArea || each.clickarea || each.click_area || each.hotspot);
                 each.showPrice = (each.price === "0.00" || !showPrice) ? "hide" : each.showPrice;
                 if (each.price && typeof each.price === "string" && each.price.trim() !== "") {
                     each.price = each.price.trim();
@@ -413,6 +414,7 @@ var IMSintegration;
                 eachIMS.IMSmappingId = _this.getBestMappingId(eachIMS);
                 eachIMS.ApiSource = _this.API;
                 eachIMS.ApiSynced = true;
+                eachIMS.clickArea = normalizeClickArea(eachIMS.clickArea || eachIMS.clickarea || eachIMS.click_area || eachIMS.hotspot);
                 if (eachIMS.modifiers) {
                     eachIMS.modifiers.forEach(function (eachMod) {
                         eachMod.productId = eachIMS.productId + "_" + eachMod.productModifierId;
@@ -695,6 +697,52 @@ var IMSintegration;
     IMSintegration.App = App;
 })(IMSintegration || (IMSintegration = {}));
 //helper functions
+var parseLayerId = function (value) {
+    var layer = parseInt(value, 10);
+    return isNaN(layer) ? null : layer;
+};
+
+var normalizeClickArea = function (input) {
+    if (!input || typeof input !== "object") {
+        return null;
+    }
+
+    var position = input.position || {};
+    var size = input.size || {};
+    var x = Number(input.x);
+    var y = Number(input.y);
+    var width = Number(input.width);
+    var height = Number(input.height);
+
+    if (isNaN(x)) {
+        x = Number(position.x);
+    }
+    if (isNaN(y)) {
+        y = Number(position.y);
+    }
+    if (isNaN(width)) {
+        width = Number(size.width);
+    }
+    if (isNaN(height)) {
+        height = Number(size.height);
+    }
+
+    if (!isFinite(x) || !isFinite(y) || !isFinite(width) || !isFinite(height) || width <= 0 || height <= 0) {
+        return null;
+    }
+
+    return {
+        id: input.id || "",
+        name: input.name || "",
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        sourceLayer: parseLayerId(input.sourceLayer || input.source || input.source_layer || input.layer || input.parentLayer),
+        targetLayer: parseLayerId(input.targetLayer || input.target || input.target_layer)
+    };
+};
+
 var validateItems = function (items, station, period, type) {
     var currentDay = currentTime();
     // station = station || mealStation|| AssetConfiguration.Display || "";

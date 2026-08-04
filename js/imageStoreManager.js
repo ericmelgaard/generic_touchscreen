@@ -4,11 +4,34 @@
     const ImageStoreManager = {
         // Template developers can edit this function to map imageStore data into the DOM.
         imageInjector() {
-            this.applyImageByName("calendar", "#card-happening", "#happening_page .cms-image img");
-            this.applyImageByName("connect", "#card-connectwithus", "#connectwithus_page .cms-image img");
-            this.applyImageByName("vote", "#card-vote", "#vote_page .cms-image img");
-            this.applyImageByName("ambassador", "#card-ambassador", "#ambassador_page .cms-image img");
-            this.applyImageByName("upcycled", "#card-foodwithpurpose", "#foodwithpurpose_page .cms-image img");
+            this.applyLayerImages();
+        },
+
+        applyLayerImages() {
+            if (!Array.isArray(imageStore) || imageStore.length === 0) {
+                return;
+            }
+
+            imageStore.forEach((item) => {
+                if (!item || item.fileType !== "image" || !item.fileName) {
+                    return;
+                }
+
+                const match = item.fileName.match(/(?:layer|page)[-_]?(\d{1,3})/i);
+                if (!match) {
+                    return;
+                }
+
+                const layerId = parseInt(match[1], 10);
+                if (isNaN(layerId)) {
+                    return;
+                }
+
+                const selector = `#layer_${layerId}_content_background img`;
+                if ($(selector).length > 0) {
+                    $(selector).attr("src", item.fullPath);
+                }
+            });
         },
 
         init() {
@@ -47,21 +70,6 @@
             if (typeof this.imageInjector === "function") {
                 this.imageInjector();
             }
-        },
-
-        applyImageByName(nameFragment, cardSelector, imageSelector) {
-            const matchedImages = imageStore.filter((item) => {
-                return item.fileName.toLowerCase().indexOf(nameFragment.toLowerCase()) >= 0 && item.fileType === "image";
-            });
-
-            if (matchedImages.length > 0) {
-                $(cardSelector).show();
-                $(imageSelector).attr("src", matchedImages[0].fullPath);
-                console.log("Set", imageSelector, "to:", matchedImages[0].fullPath);
-                return;
-            }
-
-            $(cardSelector).hide();
         },
 
         observe() {

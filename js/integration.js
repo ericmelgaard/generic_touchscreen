@@ -1775,6 +1775,9 @@ var IMSintegration;
             webtrition.forEach(function (each) {
                 each.category = each.mealStation;
                 each.mappingId = each.id.toString();
+                if (typeof normalizeClickArea === 'function') {
+                    each.clickArea = normalizeClickArea(each.clickArea || each.clickarea || each.click_area || each.hotspot);
+                }
             });
             function handleComboItems(items) {
                 var comboItems = {};
@@ -1799,6 +1802,7 @@ var IMSintegration;
                                 category: each.mealStation,
                                 mealStation: each.mealStation,
                                 price: each.price,
+                                clickArea: each.clickArea || null,
                                 items: []
                             };
                         }
@@ -1840,6 +1844,9 @@ var IMSintegration;
                 each.mappingId = each.id.toString();
                 each.name = each.label;
                 each.date = currentTime();
+                if (typeof normalizeClickArea === 'function') {
+                    each.clickArea = normalizeClickArea(each.clickArea || each.clickarea || each.click_area || each.hotspot);
+                }
                 products.push(each);
             });
             return products;

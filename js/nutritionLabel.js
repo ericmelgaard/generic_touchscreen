@@ -325,6 +325,87 @@ function closeNutritionModal() {
     }
 }
 
+function getInteractionPoint(event) {
+    var originalEvent = event.originalEvent || event;
+    if (originalEvent.changedTouches && originalEvent.changedTouches.length > 0) {
+        return {
+            x: originalEvent.changedTouches[0].clientX,
+            y: originalEvent.changedTouches[0].clientY
+        };
+    }
+    if (originalEvent.touches && originalEvent.touches.length > 0) {
+        return {
+            x: originalEvent.touches[0].clientX,
+            y: originalEvent.touches[0].clientY
+        };
+    }
+    return {
+        x: originalEvent.clientX,
+        y: originalEvent.clientY
+    };
+}
+
+function getDesignPoint(event, element) {
+    var point = getInteractionPoint(event);
+    var rect = element.getBoundingClientRect();
+
+    if (!rect.width || !rect.height) {
+        return null;
+    }
+
+    return {
+        x: (point.x - rect.left) * (1080 / rect.width),
+        y: (point.y - rect.top) * (1920 / rect.height)
+    };
+}
+
+function isValidLayerSource(clickArea) {
+    if (!clickArea || clickArea.sourceLayer === null || clickArea.sourceLayer === undefined) {
+        return true;
+    }
+    if (!window.menuLayout || typeof menuLayout.currentLayerId === "undefined") {
+        return true;
+    }
+    return parseInt(clickArea.sourceLayer, 10) === parseInt(menuLayout.currentLayerId, 10);
+}
+
+function isPointInClickArea(point, clickArea) {
+    if (!point || !clickArea) {
+        return false;
+    }
+    return point.x >= clickArea.x &&
+        point.x <= (clickArea.x + clickArea.width) &&
+        point.y >= clickArea.y &&
+        point.y <= (clickArea.y + clickArea.height);
+}
+
+function tryNavigateClickArea(event, $menuItem) {
+    var clickArea = $menuItem.find(".item-wrapper").data("clickArea") || null;
+    var nutritionData = $menuItem.find(".item-wrapper").data("nutrition") || null;
+
+    if (!clickArea && nutritionData && nutritionData.clickArea) {
+        clickArea = nutritionData.clickArea;
+    }
+
+    if (!clickArea || !isValidLayerSource(clickArea) || !clickArea.targetLayer) {
+        return false;
+    }
+
+    var point = getDesignPoint(event, $menuItem.get(0));
+    if (!isPointInClickArea(point, clickArea)) {
+        return false;
+    }
+
+    if (window.menuLayout && typeof menuLayout.navigateToLayer === "function") {
+        event.preventDefault();
+        event.stopPropagation();
+        menuLayout.navigateToLayer(clickArea.targetLayer);
+        return true;
+    }
+
+    return false;
+}
+
 $(document).ready(function () {
     ensureNutritionModalRoot();
 
@@ -342,6 +423,11 @@ function setupNutritionOverlayHandlers() {
         if ($(e.target).closest(".goHome").length > 0) {
             return;
         }
+
+        if (tryNavigateClickArea(e, $(this))) {
+            return;
+        }
+
         e.stopPropagation();
         var nutritionData = $(this).find(".item-wrapper").data("nutrition");
         if (nutritionData && typeof openNutritionModal === "function") {

@@ -179,7 +179,7 @@ Behavior:
 
 ## How Existing Files Use It
 
-- js/imageStoreManager.js: creates one player per injected media container and delegates start/advance/activate to that player.
+- js/menuLayout.js: injects layer media containers and delegates playlist start/stop to the shared playlist manager.
 - dependencies/wandLib.js Rotate.animate: uses one player per rotate zone wrapper.
 - dependencies/wandLib.js MenuRotator.rotateMenus: uses one player for station wrappers.
 

@@ -65,14 +65,6 @@ const apiKey = "";
 //yyyy-mm-dd ex.2026-02-23
 const dateToRequest = "";
 const devSiteKeys = ["6091", "4873", "4907", "5448", "4756", "6820"];
-//icon pack default asset folder IDs
-//these are the template defaults; a matching TRM setting overrides them in production
-//nutritional: leave blank to keep webtrition icons when no pack/setting is present
-//brand: falls back to the brand's text value when blank or the brand is unmatched
-//category: shows load errors when blank and no TRM setting is present
-var categoryIconPackId = "330406";
-var brandLogoIconPackId = "297748";
-var nutritionalIconPackId = "302524";
 //end development & preview values
 //global scope variables
 var integration = null;
@@ -342,6 +334,18 @@ function ready(isLeader) {
     //wand lib is ready for trmAnimate now.
     animateObserver();
 };
+
+function goHome(event) {
+    if (event && typeof event.stopPropagation === "function") {
+        event.stopPropagation();
+    }
+    if (window.menuLayout && typeof menuLayout.navigateToLayer === "function") {
+        menuLayout.navigateToLayer(1, true);
+        return;
+    }
+    $(".page").hide();
+    $(".home").show();
+}
 
 function checkSiblings() {
     if (self.frameElement) {

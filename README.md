@@ -2,6 +2,12 @@
 
 This project is a generic WAND touchscreen shell driven by CMS and TRM data.
 
+## What Changed
+
+- Legacy branded/static page markup has been removed.
+- Runtime now builds layer pages and click hotspots from data.
+- Navigation is layer-based through `menuLayout.navigateToLayer(layerId, resetHistory)`.
+
 ## Core Model
 
 - Home is layer `1`.
@@ -17,6 +23,16 @@ No static content pages are required in `index.html` beyond home and global cont
 - If a click area has no `targetLayer`, it is non-interactive.
 - Swipe gesture returns to home (layer `1`).
 - Global home button (lower-right) returns to home from any non-home page.
+
+## Implementation Assistance
+
+If you are migrating an existing asset:
+
+1. Keep `index.html` minimal (home layer + dynamic pages root + global controls).
+2. Move all interactive region definitions into CMS `menuItems[].clickArea`.
+3. Ensure TRM asset zones use the intended numeric layer id (`layerZOrder`).
+4. Ensure TRM asset media is assigned to the correct `layerZOrder` for each destination layer.
+5. Validate with hotspot debug (`Alt+H`) and confirm labels (`Lx -> Ly`).
 
 ## Required CMS Data
 
@@ -34,17 +50,18 @@ At app init:
 4. Create missing pages for discovered layers.
 5. Render click hotspots for valid click areas.
 
+Runtime then binds hotspot taps to layer navigation and starts layer media playlists.
+
 ## Dev/Preview Aids
 
 - Missing layer pages can show placeholders in dev/preview.
 - Hotspot debug overlay can be toggled:
-  - Right-click menu: `Toggle Hotspot Debug`
   - Keyboard: `Alt+H`
+  - Console: `window.toggleHotspotDebug()`
 
 ## Files to Know
 
 - `index.html`: minimal shell and script loading
 - `js/menuLayout.js`: layer routing, dynamic page creation, hotspot rendering
-- `js/imageStoreManager.js`: image binding to `layer_<id>_content_background`
 - `js/app.js`, `js/integration.js`: data formatting and `clickArea` normalization
 - `style.css`: generic template styling

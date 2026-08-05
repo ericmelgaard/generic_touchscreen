@@ -74,6 +74,22 @@ var IMSintegration;
                     $("body").append(loading);
                 }
 
+                // Preview should immediately show the default template screen and
+                // never block on key lookup or remote sync calls.
+                if (isPreview) {
+                    try {
+                        if (window.menuLayout && typeof menuLayout.init === "function") {
+                            menuLayout.init([], [], [], [], "trm", [], []);
+                        }
+                    } catch (err) {
+                        console.error("Preview bootstrap failed:", err);
+                    }
+
+                    $(".loading").remove();
+                    $(".asset-wrapper").removeClass("blur");
+                    return;
+                }
+
                 //inform.. no action
                 if (development && !isPreview) {
                     _this.showConnect(true, "black", "devmode", "Development Mode", "error_outline");

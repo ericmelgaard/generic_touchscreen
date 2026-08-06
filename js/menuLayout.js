@@ -32,7 +32,7 @@ var IMSintegration;
                 console.error("Error in MenuLayout applyThemeFromTRMMenuItems: ", e);
             }
             try {
-                this.updateTRMContent(TRMAssetZones, IMSItems);
+                this.updateTRMContent(TRMAssetZones, TRMMenuItems);
             } catch (e) {
                 console.error("Error in MenuLayout updateTRMContent: ", e);
             }
@@ -74,9 +74,9 @@ var IMSintegration;
 
             this._coreInitialized = true;
         };
-        MenuLayout.prototype.updateTRMContent = function (TRMAssetZones, IMSItems) {
+        MenuLayout.prototype.updateTRMContent = function (TRMAssetZones, TRMMenuItems) {
             try {
-                this.buildTRMInteractiveLayout(TRMAssetZones, IMSItems);
+                this.buildTRMInteractiveLayout(TRMAssetZones, TRMMenuItems);
             } catch (e) {
                 console.error("Error building TRM interactive layout: ", e);
             }
@@ -247,7 +247,7 @@ var IMSintegration;
             return this._environmentConfig;
         };
         MenuLayout.prototype.normalizeTRMAsset = function (asset) {
-            var layer = parseInt(asset.layerZOrder, 10);
+            var layer = parseInt(asset.layerZOrder != null ? asset.layerZOrder : (asset.ZOrder != null ? asset.ZOrder : (asset.zOrder != null ? asset.zOrder : asset.zlayer)), 10);
             var sequence = parseInt(asset.sequence, 10);
             var duration = parseInt(asset.duration, 10);
             var fileType = (asset.fileType || "").toLowerCase();
@@ -438,8 +438,23 @@ var IMSintegration;
             }
             return parsed;
         };
+        MenuLayout.prototype.parseMenuItemValue = function (menuItem) {
+            if (!menuItem || typeof menuItem.value !== "string") {
+                return null;
+            }
+
+            try {
+                return JSON.parse(menuItem.value);
+            } catch (e) {
+                return null;
+            }
+        };
         MenuLayout.prototype.normalizeClickArea = function (menuItem, index) {
             var rawArea = (menuItem && (menuItem.clickArea || menuItem.clickarea || menuItem.ClickArea)) || null;
+            if (!rawArea && menuItem) {
+                var parsedValue = this.parseMenuItemValue(menuItem);
+                rawArea = (parsedValue && (parsedValue.clickArea || parsedValue.clickarea || parsedValue.ClickArea)) || null;
+            }
             if (!rawArea || typeof rawArea !== "object") {
                 return null;
             }
@@ -465,6 +480,10 @@ var IMSintegration;
                 || this.toPositiveInt(rawArea.target)
                 || this.toPositiveInt(rawArea.target_layer);
 
+            if (!targetLayer) {
+                return null;
+            }
+
             return {
                 id: rawArea.id || ("click-area-" + index),
                 name: rawArea.name || (menuItem && menuItem.displayName) || "",
@@ -474,7 +493,7 @@ var IMSintegration;
                 height: height,
                 sourceLayer: sourceLayer,
                 targetLayer: targetLayer,
-                actionable: !!targetLayer
+                actionable: true
             };
         };
         MenuLayout.prototype.getClickAreasFromIMSItems = function (IMSItems) {
@@ -752,7 +771,7 @@ var IMSintegration;
                     duration: 6000,
                     transition: $container.attr("data-playlist-transition") || "crossFade",
                     transitionDurationMs: parseInt($container.attr("data-playlist-transition-ms"), 10) || 360,
-                    preloadDelayMs: 500
+                    preloadDelayMs: 0
                 });
                 return;
             }
@@ -791,11 +810,11 @@ var IMSintegration;
                 $item.removeClass("is-active").hide().css("opacity", 0);
             });
         };
-        MenuLayout.prototype.buildTRMInteractiveLayout = function (TRMAssetZones, IMSItems) {
+        MenuLayout.prototype.buildTRMInteractiveLayout = function (TRMAssetZones, TRMMenuItems) {
             this.configureHomeIdleContent(TRMAssetZones);
             this.ensureHotspotDebugBindings();
 
-            var clickAreas = this.getClickAreasFromIMSItems(IMSItems);
+            var clickAreas = this.getClickAreasFromIMSItems(TRMMenuItems);
             var discoveredLayers = this.getDiscoveredLayers(TRMAssetZones, clickAreas);
 
             this.ensureLayerPages(discoveredLayers);
@@ -1112,6 +1131,7 @@ var IMSintegration;
             // Show welcome screen
             $('.home').show();
             this.currentLayerId = 1;
+            this.startMediaPlaylist($('#layer_1_content_background'));
 
             // Clear navigation history
             this.navigationHistory = [];

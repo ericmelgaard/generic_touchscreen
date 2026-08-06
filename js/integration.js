@@ -74,6 +74,11 @@ var IMSintegration;
                     $("body").append(loading);
                 }
 
+                //inform.. no action
+                if (development && !isPreview) {
+                    _this.showConnect(true, "black", "devmode", "Development Mode", "error_outline");
+                }
+                //future action with dummy data
                 // Preview should immediately show the default template screen and
                 // never block on key lookup or remote sync calls.
                 if (isPreview) {
@@ -89,13 +94,6 @@ var IMSintegration;
                     $(".asset-wrapper").removeClass("blur");
                     return;
                 }
-
-                //inform.. no action
-                if (development && !isPreview) {
-                    _this.showConnect(true, "black", "devmode", "Development Mode", "error_outline");
-                }
-                //future action with dummy data
-                if (isPreview) { }
 
                 //confirm whitelisting in place
                 if (isLeader) {

@@ -145,7 +145,7 @@
             return state;
         }
 
-        var startDelayMs = toMs(opts.preloadDelayMs || opts.delayMs, 500);
+        var startDelayMs = toMs(opts.preloadDelayMs || opts.delayMs, 0);
         player.start({
             reset: opts.reset !== false,
             delayMs: startDelayMs,

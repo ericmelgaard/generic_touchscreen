@@ -284,11 +284,20 @@ body.show-hotspot-debug .cms-hotspot {
     background: rgba(255, 143, 77, 0.24);
     outline: 2px dashed rgba(210, 77, 0, 0.92);
     outline-offset: -2px;
+    transition: box-shadow 0.15s ease-in-out;
 }
 
 body.show-hotspot-debug .cms-hotspot.is-disabled {
     background: rgba(160, 160, 160, 0.24);
     outline-color: rgba(110, 110, 110, 0.9);
+}
+
+body.show-hotspot-debug .cms-hotspot:hover {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 18px 6px rgba(255, 143, 77, 0.9);
+}
+
+body.show-hotspot-debug .cms-hotspot.is-disabled:hover {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 18px 6px rgba(160, 160, 160, 0.8);
 }
 
 body.show-hotspot-debug .cms-hotspot-label {

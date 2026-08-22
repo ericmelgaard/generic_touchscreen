@@ -1,7 +1,7 @@
 (function (window, $) {
     "use strict";
 
-    var HOTSPOT_NAME = "Hotspot Data";
+    var HOTSPOT_NAME_PREFIX = "hotspot-data-";
     var TEXT_ITEM_TYPE_ID = 1;
     var PORTAL_BATCH_URL = "/Trm.Portal/ApiServices/json/reply/MenuItemBatchEditRequest";
     var PORTAL_CREATE_URL = "/Trm.Portal/ApiServices/json/reply/InsertMenuItemRequest";
@@ -30,6 +30,9 @@
         placement: false,
         configuring: false,
         screen: "overview",
+        saveLevel: "Concept",
+        effectiveLevel: null,
+        effectiveDetail: null,
         editingSnapshot: null,
         dirty: false,
         selectedHotspotId: null,
@@ -115,12 +118,9 @@
     }
 
     function availableLevels(ccgs) {
+        var ownKey = { Concept: "conceptKey", Company: "companyKey", Group: "groupKey", Store: "storeKey" };
         return ["Concept", "Company", "Group", "Store"].filter(function (level) {
-            var keys = getLevelKeys(level, ccgs);
-            return keys.conceptKey !== null
-                && (level === "Concept" || keys.companyKey !== null)
-                && (level === "Concept" || level === "Company" || keys.groupKey !== null)
-                && (level !== "Store" || keys.storeKey !== null);
+            return ccgs.conceptKey !== null && ccgs[ownKey[level]] !== null;
         });
     }
 
@@ -183,10 +183,17 @@
         };
     }
 
+    function getHotspotItemName() {
+        var config = window.AssetConfiguration || {};
+        var assetId = String(config.Aid || config.aid || "").trim();
+        return HOTSPOT_NAME_PREFIX + assetId;
+    }
+
     function findParent(menuItems) {
+        var wanted = getHotspotItemName();
         return (Array.isArray(menuItems) ? menuItems : []).find(function (item) {
             var typeId = item.typeId !== undefined ? item.typeId : item.TypeId;
-            return String(item.name || item.Name || "").trim() === HOTSPOT_NAME
+            return String(item.name || item.Name || "").trim() === wanted
                 && (typeId === undefined || numberOrNull(typeId) === TEXT_ITEM_TYPE_ID);
         }) || null;
     }
@@ -199,35 +206,16 @@
     }
 
     function loadCanonicalDocument() {
-        if (!state.parent) {
-            state.document = { version: 1, hotspots: [] };
-            state.savedDocument = cloneDocument(state.document);
-            return Promise.resolve(null);
+        // TRMData from wandLib is already resolved for the current store and forecast date; trust it for display.
+        state.document = state.parent
+            ? normalizeDocument(state.parent.value)
+            : { version: 1, hotspots: [] };
+        state.savedDocument = cloneDocument(state.document);
+        var levels = state.ccgs ? availableLevels(state.ccgs) : ["Concept"];
+        if (!state.saveLevel || levels.indexOf(state.saveLevel) < 0) {
+            state.saveLevel = levels.indexOf("Concept") >= 0 ? "Concept" : (levels[0] || "Concept");
         }
-
-        if (!state.ccgs || state.ccgs.conceptKey === null) {
-            state.document = normalizeDocument(state.parent.value);
-            state.savedDocument = cloneDocument(state.document);
-            return Promise.resolve(null);
-        }
-
-        var levels = availableLevels(state.ccgs).reverse();
-        function readLevel(index) {
-            if (index >= levels.length) {
-                state.document = { version: 1, hotspots: [] };
-                state.savedDocument = cloneDocument(state.document);
-                return Promise.resolve(null);
-            }
-            return resolveDetail(levels[index]).then(function (detail) {
-                if (detail) {
-                    state.document = normalizeDocument(detail.text || detail.TextValue || "");
-                    state.savedDocument = cloneDocument(state.document);
-                    return detail;
-                }
-                return readLevel(index + 1);
-            });
-        }
-        return readLevel(0);
+        return Promise.resolve(null);
     }
 
     function ensureParent() {
@@ -239,7 +227,7 @@
         if (existing && (existing.id || existing.MenuItemId)) {
             state.parent = {
                 id: numberOrNull(existing.id || existing.MenuItemId),
-                name: HOTSPOT_NAME,
+                name: getHotspotItemName(),
                 value: findTextValue(existing)
             };
             return loadCanonicalDocument().then(function () { return state.parent; });
@@ -265,7 +253,7 @@
             if (found) {
                 state.parent = {
                     id: numberOrNull(found.id || found.MenuItemId),
-                    name: HOTSPOT_NAME,
+                    name: getHotspotItemName(),
                     value: findTextValue(found)
                 };
                 return loadCanonicalDocument().then(function () { return state.parent; });
@@ -275,7 +263,7 @@
                 method: "POST",
                 body: JSON.stringify({
                     MenuItemId: -1,
-                    Name: HOTSPOT_NAME,
+                    Name: getHotspotItemName(),
                     Descr: "",
                     CustomerId: null,
                     TypeId: TEXT_ITEM_TYPE_ID,
@@ -284,9 +272,9 @@
             }).then(function (result) {
                 var parentId = typeof result === "number" ? result : numberOrNull(result && result.AffectedId);
                 if (parentId === null) {
-                    throw new Error("Hotspot Data creation did not return a menu-item ID.");
+                    throw new Error("Hotspot data creation did not return a menu-item ID.");
                 }
-                state.parent = { id: parentId, name: HOTSPOT_NAME, value: "" };
+                state.parent = { id: parentId, name: getHotspotItemName(), value: "" };
                 state.document = { version: 1, hotspots: [] };
                 state.savedDocument = cloneDocument(state.document);
                 return state.parent;
@@ -294,51 +282,107 @@
         });
     }
 
-    function findDetail(details, parentId, level) {
-        var list = Array.isArray(details) ? details : [];
-        return list.find(function (detail) {
-            return numberOrNull(detail.parentId) === numberOrNull(parentId)
-                && String(detail.domainLevel || "").toLowerCase() === level.toLowerCase();
-        }) || null;
+    function normalizeDetailResponse(data) {
+        var obj = data;
+        if (Array.isArray(data)) {
+            obj = data.filter(function (d) { return d && d.active !== false; })
+                .sort(function (a, b) { return Number(b.id || b.Id || 0) - Number(a.id || a.Id || 0); })[0] || null;
+        }
+        if (obj && (obj.id || obj.Id) && (obj.domainLevel || obj.DomainLevel)) {
+            return {
+                id: numberOrNull(obj.id || obj.Id),
+                parentId: numberOrNull(obj.parentId || obj.ParentId),
+                domainLevel: String(obj.domainLevel || obj.DomainLevel || ""),
+                text: obj.text !== undefined ? obj.text : (obj.TextValue !== undefined ? obj.TextValue : ""),
+                effectiveDate: obj.effectiveDate || obj.EffectiveDate || "",
+                active: obj.active !== false
+            };
+        }
+        return null;
     }
 
-    function resolveDetail(level) {
-        var keys = getLevelKeys(level, state.ccgs);
-        var query = new URLSearchParams();
-        Object.keys(keys).forEach(function (key) {
-            if (keys[key] !== null) {
-                query.set(key, keys[key]);
-            }
-        });
-        query.set("MenuItemId", state.parent.id);
+    function currentCCGSKeys() {
+        return {
+            conceptKey: state.ccgs ? state.ccgs.conceptKey : null,
+            companyKey: state.ccgs ? state.ccgs.companyKey : null,
+            groupKey: state.ccgs ? state.ccgs.groupKey : null,
+            storeKey: state.ccgs ? state.ccgs.storeKey : null
+        };
+    }
 
+    function fetchDetail(keys) {
+        var query = new URLSearchParams();
+        query.set("ConceptKey", keys.conceptKey === null ? "" : keys.conceptKey);
+        query.set("CompanyKey", keys.companyKey === null ? "" : keys.companyKey);
+        query.set("GroupKey", keys.groupKey === null ? "" : keys.groupKey);
+        query.set("StoreKey", keys.storeKey === null ? "" : keys.storeKey);
+        query.set("MenuItemId", state.parent.id);
+        query.set("cb", Date.now());
         return window.fetch(PORTAL_DETAILS_URL + "?" + query.toString(), { credentials: "include" })
             .then(function (response) {
                 if (!response.ok) {
-                    throw new Error("Unable to read " + level + " hotspot detail (" + response.status + ").");
+                    throw new Error("Unable to read hotspot override (" + response.status + ").");
                 }
                 return response.json();
             })
-            .then(function (details) {
-                state.detail = findDetail(details, state.parent.id, level);
-                return state.detail;
-            });
+            .then(normalizeDetailResponse);
+    }
+
+    // One CCGS-scoped lookup that reports the narrowest active override for this store (or null).
+    function resolveEffectiveDetail() {
+        if (!state.parent || !state.parent.id || !state.ccgs) {
+            state.effectiveDetail = null;
+            state.effectiveLevel = null;
+            return Promise.resolve(null);
+        }
+        return fetchDetail(currentCCGSKeys()).then(function (detail) {
+            state.effectiveDetail = detail;
+            state.effectiveLevel = detail ? detail.domainLevel : null;
+            return detail;
+        });
+    }
+
+    function fetchBaseValue() {
+        if (!state.ccgs || state.ccgs.conceptKey === null) {
+            return Promise.resolve(state.parent ? state.parent.value : "");
+        }
+        return requestJson(PORTAL_MENU_ITEMS_URL, {
+            method: "POST",
+            body: JSON.stringify({ ConceptKey: state.ccgs.conceptKey, TypeId: TEXT_ITEM_TYPE_ID, ShowDeleted: false })
+        }).then(function (items) {
+            var found = findParent(items && (items.menuItems || items.MenuItems || items));
+            return found ? findTextValue(found) : "";
+        }).catch(function () {
+            return state.parent ? state.parent.value : "";
+        });
+    }
+
+    function allowedSaveLevels() {
+        var levels = availableLevels(state.ccgs);
+        if (!state.effectiveLevel) {
+            return levels;
+        }
+        var order = ["Concept", "Company", "Group", "Store"];
+        var effIdx = order.indexOf(state.effectiveLevel);
+        if (effIdx < 0) {
+            return levels;
+        }
+        return levels.filter(function (lvl) { return order.indexOf(lvl) >= effIdx; });
     }
 
     function saveAtLevel(level) {
         var keys = getLevelKeys(level, state.ccgs);
-        return resolveDetail(level).then(function (detail) {
-            var hasExistingDetail = Boolean(detail && detail.id > 0);
-            var detailId = hasExistingDetail ? detail.id : -1;
-            var effectiveDate = detail && detail.effectiveDate
-                ? detail.effectiveDate
-                : formatPortalDate(new Date());
+        return fetchDetail(keys).then(function (detail) {
+            var forecastDate = getForecastDate();
+            var reuse = Boolean(detail && detail.id > 0 && isSameDay(new Date(detail.effectiveDate), forecastDate));
+            var detailId = reuse ? detail.id : -1;
+            var effectiveDate = reuse ? detail.effectiveDate : formatPortalDate(forecastDate);
             var payload = {
                 MenuItemDetails: [{
                     id: detailId,
                     parentId: state.parent.id,
-                    price: detail && detail.price ? detail.price : "",
-                    calories: detail && detail.calories ? detail.calories : "",
+                    price: reuse && detail.price ? detail.price : "",
+                    calories: reuse && detail.calories ? detail.calories : "",
                     text: JSON.stringify(state.document),
                     effectiveDate: effectiveDate,
                     active: true,
@@ -375,6 +419,25 @@
         var suffix = hours >= 12 ? "PM" : "AM";
         hours = hours % 12 || 12;
         return month + "/" + day + "/" + year + " " + hours + ":00 " + suffix;
+    }
+
+    // Effective date = the Content Forecaster day at 00:00 (falls back to today when not forecasting).
+    function getForecastDate() {
+        var iso = (typeof window !== "undefined" && window.cfCurrentTime) ? String(window.cfCurrentTime) : "";
+        var match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+            return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+        }
+        var now = new Date();
+        now.setHours(0, 0, 0, 0);
+        return now;
+    }
+
+    function isSameDay(a, b) {
+        return a instanceof Date && b instanceof Date && !isNaN(a.getTime()) && !isNaN(b.getTime())
+            && a.getFullYear() === b.getFullYear()
+            && a.getMonth() === b.getMonth()
+            && a.getDate() === b.getDate();
     }
 
     function cloneDocument(documentValue) {
@@ -535,6 +598,8 @@
           + "</div>"
           + "<div class='hs-body'>"
           +   "<section class='hs-screen' data-screen='overview'>"
+          +     "<label class='hs-field hs-scope' data-hs-scope style='display:none'><span>Applies to</span><select data-hs-field='scope'></select></label>"
+          +     "<div class='hs-hint' data-hs-scopehint style='display:none'></div>"
           +     "<label class='hs-field'><span>Page</span><select data-hs-field='sourcePage'></select></label>"
           +     "<div class='hs-listhead'>Hotspots on this page</div>"
           +     "<ul class='hs-list' data-hs-list></ul>"
@@ -542,7 +607,6 @@
           +   "<section class='hs-screen' data-screen='editor' hidden>"
           +     "<label class='hs-field'><span>Name</span><input data-hs-field='name' type='text' placeholder='Hotspot name'></label>"
           +     "<label class='hs-field'><span>Target page</span><select data-hs-field='target'></select></label>"
-          +     "<label class='hs-field'><span>Save level</span><select data-hs-field='level'></select></label>"
           +     "<fieldset class='hs-geo'><legend>Position &amp; size</legend><div class='hs-geogrid'>"
           +       "<label><span>Left</span><input data-hs-field='x' type='number' min='0' step='1'></label>"
           +       "<label><span>Top</span><input data-hs-field='y' type='number' min='0' step='1'></label>"
@@ -555,6 +619,7 @@
           + "</div>"
           + "<div class='hs-foot'>"
           +   "<div class='hs-foot-overview' data-foot='overview'>"
+          +     "<button type='button' class='hs-btn hs-ghost hs-block' data-hs='removeOverride' style='display:none'></button>"
           +     "<button type='button' class='hs-btn hs-primary hs-block' data-hs='create'><span class='material-icons'>add</span>Create hotspot</button>"
           +   "</div>"
           +   "<div class='hs-foot-editor' data-foot='editor' hidden>"
@@ -573,6 +638,7 @@
             else if (action === "back") { backToOverview(); }
             else if (action === "create") { createHotspot(); }
             else if (action === "remove") { removeSelected(); }
+            else if (action === "removeOverride") { removeOverride(); }
             else if (action === "revert") { revertEditor(); }
             else if (action === "save") { saveEditor(); }
         });
@@ -591,8 +657,11 @@
         $modal.on("input change", "[data-hs-field='name'],[data-hs-field='x'],[data-hs-field='y'],[data-hs-field='width'],[data-hs-field='height']", function () {
             updateEditingField($(this).attr("data-hs-field"), $(this).val());
         });
-        $modal.on("change", "[data-hs-field='target'],[data-hs-field='level']", function () {
+        $modal.on("change", "[data-hs-field='target']", function () {
             markDirty();
+        });
+        $modal.on("change", "[data-hs-field='scope']", function () {
+            onScopeChange($(this).val());
         });
         return modal;
     }
@@ -674,7 +743,6 @@
         var $modal = $(ensureModal());
         $modal.find("[data-hs-field='name']").val(state.editing.name);
         fillTargetSelect($modal);
-        fillLevelSelect($modal);
         $modal.find("[data-hs-field='target']").val(state.editing.targetLayer || "");
         syncGeoFields($modal);
         showScreen("editor");
@@ -691,11 +759,82 @@
         });
     }
 
-    function fillLevelSelect($modal) {
-        var select = $modal.find("[data-hs-field='level']").empty();
-        availableLevels(state.ccgs).forEach(function (level) {
-            select.append($('<option></option>').val(level).text(level));
+    function scopeLabel(level) {
+        var names = {
+            Concept: state.ccgs && state.ccgs.conceptName,
+            Company: state.ccgs && state.ccgs.companyName,
+            Group: state.ccgs && state.ccgs.groupName,
+            Store: state.ccgs && state.ccgs.storeName
+        };
+        var name = names[level];
+        return name ? (level + " \u2014 " + name) : level;
+    }
+
+    function onScopeChange(level) {
+        if (!level) {
+            return;
+        }
+        state.saveLevel = level;
+        renderOverview();
+    }
+
+    function deactivateDetail(detail, level) {
+        var keys = getLevelKeys(level, state.ccgs);
+        var payload = {
+            MenuItemDetails: [{
+                id: detail.id,
+                parentId: state.parent.id,
+                price: "",
+                calories: "",
+                text: detail.text || "",
+                effectiveDate: detail.effectiveDate || formatPortalDate(getForecastDate()),
+                active: false,
+                hasDate: Boolean(detail.effectiveDate),
+                conceptKey: keys.conceptKey,
+                companyKey: keys.companyKey,
+                groupKey: keys.groupKey,
+                storeKey: keys.storeKey,
+                readOnlyCalories: ""
+            }]
+        };
+        return requestJson(PORTAL_BATCH_URL, { method: "POST", body: JSON.stringify(payload) });
+    }
+
+    // After a removal the client's TRMData is stale, so pull the now-effective value ourselves.
+    function refreshDisplayToEffective() {
+        if (state.effectiveDetail) {
+            state.document = normalizeDocument(state.effectiveDetail.text);
+            state.savedDocument = cloneDocument(state.document);
+            return Promise.resolve();
+        }
+        return fetchBaseValue().then(function (baseValue) {
+            state.document = normalizeDocument(baseValue);
+            state.savedDocument = cloneDocument(state.document);
         });
+    }
+
+    function removeOverride() {
+        if (!state.effectiveDetail || !state.effectiveDetail.id || !state.effectiveLevel) {
+            return;
+        }
+        var level = state.effectiveLevel;
+        if (!window.confirm("Remove the " + level + " override? The layout will revert to the inherited value for this store.")) {
+            return;
+        }
+        var $btn = $(ensureModal()).find("[data-hs='removeOverride']");
+        $btn.prop("disabled", true).text("Removing\u2026");
+        deactivateDetail(state.effectiveDetail, level)
+            .then(resolveEffectiveDetail)
+            .then(refreshDisplayToEffective)
+            .then(function () {
+                state.saveLevel = null;
+                render();
+                renderOverview();
+            })
+            .catch(function (error) {
+                $btn.prop("disabled", false);
+                window.alert(error && error.message ? error.message : "Unable to remove override.");
+            });
     }
 
     function syncGeoFields($modal) {
@@ -772,6 +911,42 @@
 
     function renderOverview() {
         var $modal = $(ensureModal());
+        var levels = availableLevels(state.ccgs);
+        var allowed = allowedSaveLevels();
+        if (!state.saveLevel || allowed.indexOf(state.saveLevel) < 0) {
+            if (state.effectiveLevel && allowed.indexOf(state.effectiveLevel) >= 0) {
+                state.saveLevel = state.effectiveLevel;
+            } else if (allowed.indexOf("Concept") >= 0) {
+                state.saveLevel = "Concept";
+            } else {
+                state.saveLevel = allowed[0] || "Concept";
+            }
+        }
+        var scopeSelect = $modal.find("[data-hs-field='scope']").empty();
+        levels.forEach(function (lvl) {
+            var option = $('<option></option>').val(lvl).text(scopeLabel(lvl));
+            if (allowed.indexOf(lvl) < 0) {
+                option.prop("disabled", true).text(scopeLabel(lvl) + " \u2014 blocked");
+            }
+            scopeSelect.append(option);
+        });
+        scopeSelect.val(state.saveLevel);
+        $modal.find("[data-hs-scope]").toggle(levels.length > 1);
+        var blocked = levels.length > 1 && allowed.length < levels.length;
+        var scopeHint = $modal.find("[data-hs-scopehint]");
+        if (state.effectiveLevel && blocked) {
+            scopeHint.text("A " + state.effectiveLevel + " override is in place. Broader scopes are blocked until it is removed.").show();
+        } else if (levels.length > 1) {
+            scopeHint.text("Edits save as a " + state.saveLevel + " override for this scope.").show();
+        } else {
+            scopeHint.hide();
+        }
+        var removeBtn = $modal.find("[data-hs='removeOverride']");
+        if (state.effectiveLevel && blocked) {
+            removeBtn.text("Remove " + state.effectiveLevel + " override").css("display", "");
+        } else {
+            removeBtn.hide();
+        }
         var pageSelect = $modal.find("[data-hs-field='sourcePage']").empty();
         state.pages.forEach(function (page) {
             pageSelect.append($('<option></option>').val(page.id).text(page.name));
@@ -810,8 +985,11 @@
         render();
         ensureModal();
         getModalHost();
-        renderOverview();
         showScreen("overview");
+        renderOverview();
+        resolveEffectiveDetail().then(function () {
+            renderOverview();
+        }).catch(function () {});
     }
 
     function createHotspot() {
@@ -878,13 +1056,13 @@
         var $modal = $(ensureModal());
         var name = ($modal.find("[data-hs-field='name']").val() || "").trim();
         var target = numberOrNull($modal.find("[data-hs-field='target']").val());
-        var level = $modal.find("[data-hs-field='level']").val();
+        var level = state.saveLevel || "Concept";
         if (!target) {
             showStatus("Choose a target page before saving.", true);
             return;
         }
-        if (!level) {
-            showStatus("Choose a save level before saving.", true);
+        if (allowedSaveLevels().indexOf(level) < 0) {
+            showStatus("A " + state.effectiveLevel + " override is in place. Remove it before saving to " + level + ".", true);
             return;
         }
         state.editing.name = name;
@@ -905,6 +1083,8 @@
         $modal.find("[data-hs='save'],[data-hs='revert']").prop("disabled", true);
         saveAtLevel(level).then(function () {
             state.savedDocument = cloneDocument(state.document);
+            return resolveEffectiveDetail();
+        }).then(function () {
             finishToOverview();
         }).catch(function (error) {
             showStatus(error.message, true);
@@ -946,10 +1126,12 @@
             finishToOverview();
             return;
         }
-        var level = $(ensureModal()).find("[data-hs-field='level']").val();
+        var level = state.saveLevel || "Concept";
         showStatus("Removing\u2026", false);
         saveAtLevel(level).then(function () {
             state.savedDocument = cloneDocument(state.document);
+            return resolveEffectiveDetail();
+        }).then(function () {
             finishToOverview();
         }).catch(function (error) {
             showStatus(error.message, true);

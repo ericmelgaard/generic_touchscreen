@@ -218,11 +218,10 @@
         return Promise.resolve(null);
     }
 
-    function ensureParent() {
+    function locateParent() {
         if (state.parent && state.parent.id) {
-            return Promise.resolve(state.parent);
+            return state.parent;
         }
-
         var existing = findParent(state.menuItems);
         if (existing && (existing.id || existing.MenuItemId)) {
             state.parent = {
@@ -230,13 +229,22 @@
                 name: getHotspotItemName(),
                 value: findTextValue(existing)
             };
-            return loadCanonicalDocument().then(function () { return state.parent; });
+            return state.parent;
         }
+        return null;
+    }
 
+    // Create the per-asset item only when needed (at save time) so we never leave empty records behind.
+    function ensureParent() {
+        if (state.parent && state.parent.id) {
+            return Promise.resolve(state.parent);
+        }
+        if (locateParent()) {
+            return Promise.resolve(state.parent);
+        }
         if (!state.enabled) {
             return Promise.resolve(null);
         }
-
         if (!state.ccgs || state.ccgs.conceptKey === null) {
             return Promise.reject(new Error("MostRecentCCGS does not contain a concept key."));
         }
@@ -256,7 +264,7 @@
                     name: getHotspotItemName(),
                     value: findTextValue(found)
                 };
-                return loadCanonicalDocument().then(function () { return state.parent; });
+                return state.parent;
             }
 
             return requestJson(PORTAL_CREATE_URL, {
@@ -275,30 +283,52 @@
                     throw new Error("Hotspot data creation did not return a menu-item ID.");
                 }
                 state.parent = { id: parentId, name: getHotspotItemName(), value: "" };
-                state.document = { version: 1, hotspots: [] };
-                state.savedDocument = cloneDocument(state.document);
                 return state.parent;
             });
         });
     }
 
-    function normalizeDetailResponse(data) {
-        var obj = data;
-        if (Array.isArray(data)) {
-            obj = data.filter(function (d) { return d && d.active !== false; })
-                .sort(function (a, b) { return Number(b.id || b.Id || 0) - Number(a.id || a.Id || 0); })[0] || null;
+    function normalizeDetail(obj) {
+        if (!obj || !(obj.id || obj.Id) || !(obj.domainLevel || obj.DomainLevel)) {
+            return null;
         }
-        if (obj && (obj.id || obj.Id) && (obj.domainLevel || obj.DomainLevel)) {
-            return {
-                id: numberOrNull(obj.id || obj.Id),
-                parentId: numberOrNull(obj.parentId || obj.ParentId),
-                domainLevel: String(obj.domainLevel || obj.DomainLevel || ""),
-                text: obj.text !== undefined ? obj.text : (obj.TextValue !== undefined ? obj.TextValue : ""),
-                effectiveDate: obj.effectiveDate || obj.EffectiveDate || "",
-                active: obj.active !== false
-            };
+        return {
+            id: numberOrNull(obj.id || obj.Id),
+            parentId: numberOrNull(obj.parentId || obj.ParentId),
+            domainLevel: String(obj.domainLevel || obj.DomainLevel || ""),
+            text: obj.text !== undefined ? obj.text : (obj.TextValue !== undefined ? obj.TextValue : ""),
+            effectiveDate: obj.effectiveDate || obj.EffectiveDate || "",
+            active: obj.active !== false
+        };
+    }
+
+    function normalizeDetailList(data) {
+        var arr = Array.isArray(data) ? data : (data ? [data] : []);
+        return arr.map(normalizeDetail).filter(function (detail) { return detail && detail.active; });
+    }
+
+    var LEVEL_ORDER = { Concept: 0, Company: 1, Group: 2, Store: 3 };
+
+    // Narrowest domain level that is effective as of the forecast date wins.
+    function pickEffective(list) {
+        if (!list.length) {
+            return null;
         }
-        return null;
+        var forecast = getForecastDate().getTime();
+        var effective = list.filter(function (detail) {
+            var time = detail.effectiveDate ? new Date(detail.effectiveDate).getTime() : NaN;
+            return !isNaN(time) && time <= forecast;
+        });
+        var pool = (effective.length ? effective : list).slice().sort(function (a, b) {
+            var la = LEVEL_ORDER[a.domainLevel] !== undefined ? LEVEL_ORDER[a.domainLevel] : -1;
+            var lb = LEVEL_ORDER[b.domainLevel] !== undefined ? LEVEL_ORDER[b.domainLevel] : -1;
+            if (lb !== la) { return lb - la; }
+            var ta = a.effectiveDate ? new Date(a.effectiveDate).getTime() : 0;
+            var tb = b.effectiveDate ? new Date(b.effectiveDate).getTime() : 0;
+            if (tb !== ta) { return tb - ta; }
+            return (b.id || 0) - (a.id || 0);
+        });
+        return pool[0];
     }
 
     function currentCCGSKeys() {
@@ -310,7 +340,7 @@
         };
     }
 
-    function fetchDetail(keys) {
+    function fetchDetailList(keys) {
         var query = new URLSearchParams();
         query.set("ConceptKey", keys.conceptKey === null ? "" : keys.conceptKey);
         query.set("CompanyKey", keys.companyKey === null ? "" : keys.companyKey);
@@ -325,7 +355,11 @@
                 }
                 return response.json();
             })
-            .then(normalizeDetailResponse);
+            .then(normalizeDetailList);
+    }
+
+    function fetchDetail(keys) {
+        return fetchDetailList(keys).then(pickEffective);
     }
 
     // One CCGS-scoped lookup that reports the narrowest active override for this store (or null).
@@ -371,41 +405,74 @@
     }
 
     function saveAtLevel(level) {
+        return ensureParent().then(function (parent) {
+            if (!parent || !parent.id) {
+                throw new Error("Unable to resolve the hotspot menu item for saving.");
+            }
+            return writeDetail(level);
+        });
+    }
+
+    function writeDetail(level) {
         var keys = getLevelKeys(level, state.ccgs);
-        return fetchDetail(keys).then(function (detail) {
+        return fetchDetailList(keys).then(function (list) {
             var forecastDate = getForecastDate();
-            var reuse = Boolean(detail && detail.id > 0 && isSameDay(new Date(detail.effectiveDate), forecastDate));
-            var detailId = reuse ? detail.id : -1;
-            var effectiveDate = reuse ? detail.effectiveDate : formatPortalDate(forecastDate);
-            var payload = {
-                MenuItemDetails: [{
-                    id: detailId,
+            var sameDate = list.filter(function (detail) {
+                return String(detail.domainLevel || "").toLowerCase() === level.toLowerCase()
+                    && detail.effectiveDate
+                    && isSameDay(new Date(detail.effectiveDate), forecastDate);
+            }).sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
+
+            var target = sameDate[0] || null;
+            var detailId = target ? target.id : -1;
+            var effectiveDate = formatPortalDate(target ? new Date(target.effectiveDate) : forecastDate);
+
+            var details = [{
+                id: detailId,
+                parentId: state.parent.id,
+                price: "",
+                calories: "",
+                text: JSON.stringify(state.document),
+                effectiveDate: effectiveDate,
+                active: true,
+                hasDate: Boolean(effectiveDate),
+                conceptKey: keys.conceptKey,
+                companyKey: keys.companyKey,
+                groupKey: keys.groupKey,
+                storeKey: keys.storeKey,
+                readOnlyCalories: ""
+            }];
+
+            // Collapse leftover duplicate rows on the same date into the one we just updated.
+            sameDate.slice(1).forEach(function (dupe) {
+                details.push({
+                    id: dupe.id,
                     parentId: state.parent.id,
-                    price: reuse && detail.price ? detail.price : "",
-                    calories: reuse && detail.calories ? detail.calories : "",
-                    text: JSON.stringify(state.document),
-                    effectiveDate: effectiveDate,
-                    active: true,
-                    hasDate: Boolean(effectiveDate),
+                    price: "",
+                    calories: "",
+                    text: dupe.text || "",
+                    effectiveDate: formatPortalDate(new Date(dupe.effectiveDate)),
+                    active: false,
+                    hasDate: true,
                     conceptKey: keys.conceptKey,
                     companyKey: keys.companyKey,
                     groupKey: keys.groupKey,
                     storeKey: keys.storeKey,
                     readOnlyCalories: ""
-                }]
-            };
+                });
+            });
 
             return requestJson(PORTAL_BATCH_URL, {
                 method: "POST",
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ MenuItemDetails: details })
             }).then(function (result) {
-                state.detail = Object.assign({}, detail || {}, {
+                state.detail = {
                     id: detailId,
                     parentId: state.parent.id,
                     effectiveDate: effectiveDate,
                     text: JSON.stringify(state.document),
                     domainLevel: level
-                });
+                };
                 return result;
             });
         });
@@ -1251,13 +1318,9 @@
         }
         state.dataInitialized = true;
         state.ccgs = normalizeCCGS(readMostRecentCCGS());
-        ensureParent().then(function () {
-            if (state.enabled) {
-                bindInteractions();
-            }
-            render();
-        }).catch(function (error) {
-            console.error("Hotspot authoring initialization failed:", error);
+        locateParent();
+        loadCanonicalDocument().then(render).catch(function (error) {
+            console.error("Hotspot authoring load failed:", error);
         });
     }
 
@@ -1296,6 +1359,7 @@
             extendOptionsMenu(existingDropdown);
         }
         window.addEventListener("trm:layerChanged", render);
+        bindInteractions();
         window.HotspotController = api;
     }
 

@@ -7,21 +7,13 @@ This template is now fully data-driven:
 - Click hotspots are generated from `menuItems[].clickArea` objects.
 - Layer visuals are loaded from TRM asset zones by layer id.
 
-## 1. Define Layer Art in CMS/TRM
-
-Name assets so layer images can be resolved by layer id (example patterns):
-
 - `layer10-home-promo.png`
 - `page20-seasonal.jpg`
 
 The runtime looks for `layer` or `page` followed by digits in the file name and maps to:
 
-- `layer_<id>_content_background` (media container)
-- `layer_<id>_page` (runtime page container, for layers > 1)
 
 TRM zones should set `layerZOrder` to the matching layer id.
-
-## 2. Define Click Areas
 
 For each interactive region, author a `clickArea` with:
 
@@ -30,17 +22,11 @@ For each interactive region, author a `clickArea` with:
 - `targetLayer`
 
 See `docs/CMS_CLICK_AREAS.md` for schema.
-
-Important behavior:
-
 - `sourceLayer` chooses where hotspot is rendered.
 - `targetLayer` controls navigation destination.
 - Missing or invalid `targetLayer` creates a non-actionable hotspot.
 
 ## 3. Nested Zones and Layer Chains
-
-Nested experiences are represented as layer-to-layer chains in data.
-
 Example flow:
 
 1. Home hotspot: `sourceLayer: 1`, `targetLayer: 20`
@@ -58,20 +44,11 @@ Use hotspot debug overlay:
 
 Confirm:
 
-- Hotspot bounds align with art
-- Labels show correct layer transitions (`Lx -> Ly`)
 - Destinations navigate correctly
 
 ## 5. Runtime Expectations
-
-- Home is layer `1`.
-- All non-home pages are generated from data.
 - Missing `targetLayer` means no action.
 - Swipe and home button always return to layer `1`.
-
-The canonical runtime navigation path is `menuLayout.navigateToLayer(layerId, resetHistory)`.
-
-## 6. Implementation Assistance
 
 Use this migration checklist when converting legacy touchscreen builds:
 
@@ -96,3 +73,33 @@ If a hotspot appears but does not navigate:
 1. Verify `targetLayer` parses to a positive integer.
 2. Confirm destination layer media exists in TRM for that layer id.
 3. Confirm the hotspot is not marked disabled in debug mode.
+
+## 8. Content Forecaster Hotspot Authoring
+
+When this asset runs inside the authenticated QA Content Forecaster iframe, `hotspot_controller.js` enables authoring for the shared text menu item named `Hotspot Data`.
+
+The controller stores one JSON document in the text value of that menu item:
+
+```json
+{
+	"version": 1,
+	"hotspots": [
+		{
+			"id": "hotspot-example",
+			"name": "Seasonal menu",
+			"x": 120,
+			"y": 340,
+			"width": 420,
+			"height": 180,
+			"sourceLayer": 1,
+			"targetLayer": 20
+		}
+	]
+}
+```
+
+The parent `Hotspot Data` menu item is created at the current concept when it does not exist. A pricing detail is resolved separately for the selected Concept, Company, Group, or Store level. If that detail does not exist, the first Apply creates it with `id: 0`; later Apply operations update the resolved detail ID.
+
+All detail writes use the authenticated `MenuItemBatchEditRequest` endpoint. The controller reads `MostRecentCCGS` from local storage and does not use hard-coded location IDs. The parent app remains responsible for authentication cookies.
+
+Authoring controls are unavailable in external preview and outside an authenticated QA Content Forecaster iframe. In authoring mode, right-clicking an existing hotspot opens its editor, dragging moves it, the lower-right handle resizes it, and right-clicking open space exposes `Create hotspot` through the existing options menu. Apply persists immediately; Revert restores the last saved in-memory document.

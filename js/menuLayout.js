@@ -438,78 +438,7 @@ var IMSintegration;
             }
             return parsed;
         };
-        MenuLayout.prototype.parseMenuItemValue = function (menuItem) {
-            if (!menuItem || typeof menuItem.value !== "string") {
-                return null;
-            }
-
-            try {
-                return JSON.parse(menuItem.value);
-            } catch (e) {
-                return null;
-            }
-        };
-        MenuLayout.prototype.normalizeClickArea = function (menuItem, index) {
-            var rawArea = (menuItem && (menuItem.clickArea || menuItem.clickarea || menuItem.ClickArea)) || null;
-            if (!rawArea && menuItem) {
-                var parsedValue = this.parseMenuItemValue(menuItem);
-                rawArea = (parsedValue && (parsedValue.clickArea || parsedValue.clickarea || parsedValue.ClickArea)) || null;
-            }
-            if (!rawArea || typeof rawArea !== "object") {
-                return null;
-            }
-
-            var x = parseFloat(rawArea.x != null ? rawArea.x : (rawArea.position && rawArea.position.x));
-            var y = parseFloat(rawArea.y != null ? rawArea.y : (rawArea.position && rawArea.position.y));
-            var width = parseFloat(rawArea.width != null ? rawArea.width : (rawArea.size && rawArea.size.width));
-            var height = parseFloat(rawArea.height != null ? rawArea.height : (rawArea.size && rawArea.size.height));
-            if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
-                return null;
-            }
-
-            var sourceLayer = this.toPositiveInt(rawArea.sourceLayer);
-            if (!sourceLayer) {
-                sourceLayer = this.toPositiveInt(rawArea.source)
-                    || this.toPositiveInt(rawArea.source_layer)
-                    || this.toPositiveInt(rawArea.layer)
-                    || this.toPositiveInt(rawArea.parentLayer)
-                    || 1;
-            }
-
-            var targetLayer = this.toPositiveInt(rawArea.targetLayer)
-                || this.toPositiveInt(rawArea.target)
-                || this.toPositiveInt(rawArea.target_layer);
-
-            if (!targetLayer) {
-                return null;
-            }
-
-            return {
-                id: rawArea.id || ("click-area-" + index),
-                name: rawArea.name || (menuItem && menuItem.displayName) || "",
-                x: x,
-                y: y,
-                width: width,
-                height: height,
-                sourceLayer: sourceLayer,
-                targetLayer: targetLayer,
-                actionable: true
-            };
-        };
-        MenuLayout.prototype.getClickAreasFromIMSItems = function (IMSItems) {
-            var _this = this;
-            var clickAreas = [];
-
-            (Array.isArray(IMSItems) ? IMSItems : []).forEach(function (menuItem, index) {
-                var normalized = _this.normalizeClickArea(menuItem, index);
-                if (normalized) {
-                    clickAreas.push(normalized);
-                }
-            });
-
-            return clickAreas;
-        };
-        MenuLayout.prototype.getDiscoveredLayers = function (TRMAssetZones, clickAreas) {
+        MenuLayout.prototype.getDiscoveredLayers = function (TRMAssetZones) {
             var _this = this;
             var discovered = { 1: true };
 
@@ -520,15 +449,6 @@ var IMSintegration;
                         discovered[asset.layer] = true;
                     }
                 });
-
-            (Array.isArray(clickAreas) ? clickAreas : []).forEach(function (area) {
-                if (area.sourceLayer) {
-                    discovered[area.sourceLayer] = true;
-                }
-                if (area.targetLayer) {
-                    discovered[area.targetLayer] = true;
-                }
-            });
 
             return Object.keys(discovered)
                 .map(function (layerId) { return parseInt(layerId, 10); })
@@ -625,47 +545,6 @@ var IMSintegration;
                     return;
                 }
                 _this.renderLayerPreviewFallback(selector, layerId, hasAnyTRMMedia ? "layer-missing" : "no-trm");
-            });
-        };
-        MenuLayout.prototype.createHotspotElement = function (clickArea) {
-            var $hotspot = $('<button type="button" class="cms-hotspot"></button>');
-            var x = Math.max(0, clickArea.x);
-            var y = Math.max(0, clickArea.y);
-            var width = Math.max(1, clickArea.width);
-            var height = Math.max(1, clickArea.height);
-            var label = 'L' + clickArea.sourceLayer + ' -> ' + (clickArea.targetLayer ? 'L' + clickArea.targetLayer : 'none');
-
-            $hotspot.css({
-                left: x + 'px',
-                top: y + 'px',
-                width: width + 'px',
-                height: height + 'px'
-            });
-            $hotspot.attr('title', label);
-            $hotspot.attr('aria-label', label);
-            $hotspot.attr('data-source-layer', clickArea.sourceLayer);
-            if (clickArea.targetLayer) {
-                $hotspot.attr('data-target-layer', clickArea.targetLayer);
-            } else {
-                $hotspot.addClass('is-disabled');
-                $hotspot.attr('aria-disabled', 'true');
-            }
-            $hotspot.append('<span class="cms-hotspot-label">' + label + '</span>');
-
-            return $hotspot;
-        };
-        MenuLayout.prototype.renderLayerHotspots = function (clickAreas) {
-            var _this = this;
-            $('.hotspot-layer').empty();
-
-            (Array.isArray(clickAreas) ? clickAreas : []).forEach(function (clickArea) {
-                var sourceLayer = _this.toPositiveInt(clickArea.sourceLayer) || 1;
-                _this.ensureLayerPage(sourceLayer);
-                var $layer = $('#layer_' + sourceLayer + '_hotspots');
-                if (!$layer.length) {
-                    return;
-                }
-                $layer.append(_this.createHotspotElement(clickArea));
             });
         };
         MenuLayout.prototype.ensureHotspotDebugBindings = function () {
@@ -814,20 +693,21 @@ var IMSintegration;
             this.configureHomeIdleContent(TRMAssetZones);
             this.ensureHotspotDebugBindings();
 
-            var clickAreas = this.getClickAreasFromIMSItems(TRMMenuItems);
-            var discoveredLayers = this.getDiscoveredLayers(TRMAssetZones, clickAreas);
+            var discoveredLayers = this.getDiscoveredLayers(TRMAssetZones);
 
             this.ensureLayerPages(discoveredLayers);
             this.renderLayerMediaAssets(TRMAssetZones, discoveredLayers);
-            this.renderLayerHotspots(clickAreas);
+
+            if (window.HotspotController && typeof window.HotspotController.onMenuItems === "function") {
+                window.HotspotController.onMenuItems(TRMMenuItems);
+            }
+            if (window.HotspotController && typeof window.HotspotController.onAssets === "function") {
+                window.HotspotController.onAssets(TRMAssetZones);
+            }
 
             if (!TRMAssetZones || !TRMAssetZones.length) {
                 console.warn("No TRM asset zones provided.");
             }
-            if (!clickAreas.length) {
-                console.warn("No CMS click areas found in menuItems.");
-            }
-
             if (!this.toPositiveInt(this.currentLayerId)) {
                 this.currentLayerId = 1;
             }
@@ -883,6 +763,9 @@ var IMSintegration;
             $(document).on('click.cms-hotspot-nav', '.cms-hotspot', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
+                if ($(this).hasClass('hotspot-authoring')) {
+                    return;
+                }
                 var targetLayer = parseInt($(this).attr('data-target-layer'), 10);
                 if (isNaN(targetLayer) || targetLayer <= 0) {
                     return;
@@ -1035,11 +918,13 @@ var IMSintegration;
                 }
                 this.currentLayerId = 1;
                 this.navigateToWelcome();
+                window.dispatchEvent(new CustomEvent("trm:layerChanged", { detail: { layerId: 1 } }));
                 return;
             }
 
             this.ensureLayerPage(resolvedLayer);
             this.currentLayerId = resolvedLayer;
+            window.dispatchEvent(new CustomEvent("trm:layerChanged", { detail: { layerId: resolvedLayer } }));
             if (resetHistory) {
                 this.navigationHistory = [];
             }

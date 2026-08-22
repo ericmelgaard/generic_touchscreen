@@ -26,15 +26,11 @@ function setupOptionsMenu() {
   if (!client) {
     dropdownMenu.innerHTML = `
     <div class="dropdown-item" data-action="refresh">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
+      <span class="material-icons" aria-hidden="true">refresh</span>
       <span>Refresh</span>
     </div>
     <div class="dropdown-item" data-action="reset">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
+      <span class="material-icons" aria-hidden="true">restart_alt</span>
       <span>Reset</span>
     </div>
     <div class="dropdown-item" data-action="rotate">
@@ -53,15 +49,11 @@ function setupOptionsMenu() {
   } else {
     dropdownMenu.innerHTML = `
     <div class="dropdown-item" data-action="refresh">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
+      <span class="material-icons" aria-hidden="true">refresh</span>
       <span>Refresh</span>
     </div>
     <div class="dropdown-item" data-action="reset">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
+      <span class="material-icons" aria-hidden="true">restart_alt</span>
       <span>Reset</span>
     </div>
   `;
@@ -70,7 +62,7 @@ function setupOptionsMenu() {
 
   // Create container for the options menu
   const optionsContainer = document.createElement('div');
-  optionsContainer.className = 'options-container options-hidden';
+  optionsContainer.className = 'options-container options-hidden' + (typeof isCF !== 'undefined' && isCF ? ' content-forecaster-options' : '');
   optionsContainer.appendChild(dropdownMenu);
 
 
@@ -147,6 +139,11 @@ function setupOptionsMenu() {
     e.stopPropagation();
     const action = item.getAttribute('data-action');
     const windowToggleScale = new CustomEvent('windowToggleScale');
+    if (action === 'configure' && window.HotspotController && typeof window.HotspotController.configure === 'function') {
+      window.HotspotController.configure();
+      hideCustomMenu();
+      return;
+    }
     switch (action) {
       case 'refresh':
         document.refreshAsset();
@@ -164,6 +161,10 @@ function setupOptionsMenu() {
     }
     hideCustomMenu();
   });
+
+  if (window.HotspotController && typeof window.HotspotController.extendOptionsMenu === 'function') {
+    window.HotspotController.extendOptionsMenu(dropdownMenu);
+  }
 
   return {
     optionsContainer,

@@ -269,6 +269,12 @@ body {
     margin: 0;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.cms-hotspot:not(.is-disabled):hover,
+.cms-hotspot:not(.is-disabled):active {
+    box-shadow: 0 0 0 3px rgba(0, 153, 255, 0.85), 0 0 16px 4px rgba(0, 153, 255, 0.6);
 }
 
 .cms-hotspot.is-disabled {
@@ -278,6 +284,125 @@ body {
 
 .cms-hotspot-label {
     display: none;
+}
+
+.hotspot-authoring {
+    border: 2px dashed rgba(0, 139, 255, 0.55);
+    background: rgba(0, 139, 255, 0.04);
+    z-index: 22;
+}
+
+.hotspot-runtime:hover,
+.hotspot-runtime:active,
+.hotspot-runtime:focus-visible {
+    box-shadow: none;
+}
+
+.hotspot-authoring:hover,
+.hotspot-authoring:focus-visible,
+.hotspot-authoring.is-selected {
+    border-style: solid;
+    border-color: rgba(0, 139, 255, 0.95);
+    background: rgba(0, 139, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(0, 139, 255, 0.95), 0 0 18px 5px rgba(0, 139, 255, 0.55);
+}
+
+.hotspot-authoring .cms-hotspot-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    padding: 3px 8px;
+    color: #ffffff;
+    background: rgba(0, 62, 120, 0.88);
+    border-radius: 4px;
+    font: 600 18px/1.2 "BarlowSemiCondensed-Regular", sans-serif;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.hotspot-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 22px;
+    height: 22px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 45%, #007bd4 46%, #007bd4 58%, transparent 59%);
+    pointer-events: auto;
+}
+
+.hotspot-test-button,
+.hotspot-move-handle,
+.hotspot-resize-handle,
+.hotspot-target-error {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease-in-out;
+}
+
+.hotspot-authoring:hover .hotspot-test-button,
+.hotspot-authoring:hover .hotspot-move-handle,
+.hotspot-authoring:hover .hotspot-resize-handle,
+.hotspot-authoring:hover .hotspot-target-error,
+.hotspot-authoring:focus-visible .hotspot-test-button,
+.hotspot-authoring:focus-visible .hotspot-move-handle,
+.hotspot-authoring:focus-visible .hotspot-resize-handle,
+.hotspot-authoring:focus-visible .hotspot-target-error,
+.hotspot-authoring.is-selected .hotspot-test-button,
+.hotspot-authoring.is-selected .hotspot-move-handle,
+.hotspot-authoring.is-selected .hotspot-resize-handle,
+.hotspot-authoring.is-selected .hotspot-target-error {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.hotspot-test-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 5px 10px;
+    color: #ffffff;
+    background: #006db6;
+    border-radius: 4px;
+    font: 600 16px/1 "BarlowSemiCondensed-Regular", sans-serif;
+    cursor: pointer;
+}
+
+.hotspot-move-handle {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+    color: #ffffff;
+    background: rgba(0, 62, 120, 0.88);
+    border-radius: 4px;
+    cursor: move;
+}
+
+.hotspot-move-handle .material-icons {
+    font-size: 18px;
+}
+
+.hotspot-target-error {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 90%;
+    padding: 4px 8px;
+    color: #ffffff;
+    background: #a33a3a;
+    border-radius: 4px;
+    font: 14px/1.1 "BarlowSemiCondensed-Regular", sans-serif;
+    cursor: help;
 }
 
 body.show-hotspot-debug .cms-hotspot {

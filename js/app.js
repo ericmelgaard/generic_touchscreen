@@ -1,11 +1,12 @@
+"use strict";
 //Publisher: Wand Digital
 //Date: 06.22.2026
 //Version: 65.0
 var IMSintegration;
-(wandDigital => {
-    var App = (() => {
-        class App {
-            constructor() {
+(function (wandDigital) {
+    var App = (function () {
+        var App = /** @class */ (function () {
+            function App() {
                 this.db = null;
                 this.store = "";
                 this.API = "";
@@ -17,83 +18,91 @@ var IMSintegration;
                 this.observerInstance = null;
                 this.dayWatcher = null;
             }
-
-            init(API, fullStart) {
-                const _this = this;
+            App.prototype.init = function (API, fullStart) {
+                var _this = this;
                 if (!_this.observerInstance) {
                     _this.observerInstance = _this.observer();
                 }
-                _this.getAPI().then(() => {
+                _this.getAPI().then(function () {
                     _this.fullStart = fullStart;
                     if (fullStart) {
                         return;
                     }
                     _this.readDatabase();
                 });
-            }
-
-            getAPI() {
-                const _this = this;
-                return new Promise((resolve, reject) => {
+            };
+            App.prototype.getAPI = function () {
+                var _this = this;
+                return new Promise(function (resolve, reject) {
                     function retry() {
-                        const API = self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")") && JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).API ? JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).API : null;
-                        const BRAND = self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")") && JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).brand ? JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).brand : null;
+                        var API = self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")") && JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).API ? JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).API : null;
+                        var BRAND = self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")") && JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).brand ? JSON.parse(self.localStorage.getItem(_this.store + "_store_context" + "(" + version + ")")).brand : null;
                         if (API && BRAND) {
                             _this.API = API;
                             _this.BRAND = BRAND;
+                            IMSintegration.Integration.prototype.showConnect(false, "slate", "setup", "integration setting issue", "error");
                             resolve(API);
                         }
                         else {
                             setTimeout(retry, 2000);
+                            IMSintegration.Integration.prototype.showConnect(true, "slate", "setup", "integration setting issue", "error");                           
                         }
                     }
                     retry();
                 });
-            }
-
-            observer() {
-                const _this = this;
-                const handleDbChange = _.debounce((changes) => {
+            };
+            App.prototype.observer = function () {
+                var _this = this;
+                var handleDbChange = _.debounce(function (changes) {
                     // Ensure changes is an array
                     if (!Array.isArray(changes)) {
                         changes = [changes];
                     }
-                    const groupedChanges = {};
-                    changes.forEach(change => {
-                        if (!change || !change.table) return;
-                        let changeTable = "";
-                        if (change.table === "anchors") return;
+                    var groupedChanges = {};
+                    changes.forEach(function (change) {
+                        if (!change || !change.table)
+                            return;
+                        var changeTable = "";
+                        if (change.table === "anchors")
+                            return;
                         if (change.table.indexOf("IMS_products") > -1) {
                             changeTable = "IMS_products";
                             _this.IMSUpdate = true; // Track IMS updates
-                        } else if (change.table.indexOf("IMS_menuItems") > -1) {
+                        }
+                        else if (change.table.indexOf("IMS_menuItems") > -1) {
                             changeTable = "IMS_menuItems";
                             _this.IMSUpdate = true; // Track IMS updates
-                        } else if (change.table.indexOf("integration") > -1) {
+                        }
+                        else if (change.table.indexOf("integration") > -1) {
                             changeTable = (_this.API).toUpperCase() + " Item";
                             _this.integrationUpdate = true; // Track integration updates
-                        } else if (change.table.indexOf("TRM_assetZones") > -1) {
-                            changeTable = "TRM_assetZones";
+                        }
+                        else if (change.table.indexOf("TRM_assetDetail") > -1) {
+                            changeTable = "TRM_assetDetail";
                             _this.settingsUpdate = true; // Trigger standard refresh flow for TRM updates
-                        } else if (change.table.indexOf("TRM_menuItems") > -1) {
+                        }
+                        else if (change.table.indexOf("TRM_menuItems") > -1) {
                             changeTable = "TRM_menuItems";
                             _this.settingsUpdate = true; // Trigger standard refresh flow for TRM updates
-                        } else if (change.table.indexOf("IMS_settings") > -1) {
+                        }
+                        else if (change.table.indexOf("IMS_settings") > -1) {
                             changeTable = "setting";
                             _this.settingsUpdate = true; // Track settings updates
-                        } else {
+                        }
+                        else {
                             return;
                         }
-                        if (!groupedChanges[changeTable]) groupedChanges[changeTable] = [];
+                        if (!groupedChanges[changeTable])
+                            groupedChanges[changeTable] = [];
                         groupedChanges[changeTable].push(change);
                     });
-
                     // Now process each group
-                    Object.keys(groupedChanges).forEach(changeTable => {
-                        const group = groupedChanges[changeTable];
-                        group.forEach((change, idx) => {
+                    Object.keys(groupedChanges).forEach(function (changeTable) {
+                        var group = groupedChanges[changeTable];
+                        group.forEach(function (change, idx) {
                             // Only log first 6 changes per group if leader
-                            if (idx > 5 || !leader) return;
+                            if (idx > 5 || !leader)
+                                return;
                             switch (change.action) {
                                 case 'added':
                                     console.log(changeTable + ' added:', change.item);
@@ -110,13 +119,13 @@ var IMSintegration;
                         });
                         // If more than 6 changes in this group, log the rest as a table
                         if (group.length > 6 && leader) {
-                            const logs = [];
-                            group.forEach(each => {
+                            var logs_1 = [];
+                            group.forEach(function (each) {
                                 each.item.action = each.action;
-                                logs.push(each.item);
+                                logs_1.push(each.item);
                             });
                             console.groupCollapsed("...and an additional " + (group.length - 6) + " " + changeTable + " changes");
-                            console.table(logs.slice(6));
+                            console.table(logs_1.slice(6));
                             console.groupEnd();
                         }
                     });
@@ -132,8 +141,9 @@ var IMSintegration;
                     if (!_this.fullStart && (_this.integrationUpdate || _this.settingsUpdate || _this.IMSUpdate)) {
                         if (_this.API) {
                             _this.readDatabase();
-                        } else {
-                            _this.getAPI().then(api => {
+                        }
+                        else {
+                            _this.getAPI().then(function (api) {
                                 _this.readDatabase();
                             });
                         }
@@ -145,8 +155,9 @@ var IMSintegration;
                     if (_this.fullStart && (_this.integrationUpdate || _this.API === "ims" || _this.API === "trm") && (_this.IMSUpdate || _this.API === "trm")) {
                         if (_this.API) {
                             _this.readDatabase();
-                        } else {
-                            _this.getAPI().then(api => {
+                        }
+                        else {
+                            _this.getAPI().then(function (api) {
                                 _this.readDatabase();
                             });
                         }
@@ -157,84 +168,76 @@ var IMSintegration;
                     }
                     changesQueue.length = 0;
                 }, 50);
-                const changesQueue = [];
-                window.addEventListener('dbChangeEvent', (event) => {
+                var changesQueue = [];
+                window.addEventListener('dbChangeEvent', function (event) {
                     changesQueue.push(event.detail);
                     handleDbChange(changesQueue);
                 });
-                window.addEventListener('storage', event => {
+                window.addEventListener('storage', function (event) {
                     if (event.key === _this.store + '_dbChangeEvent' + "(" + version + ")") {
-                        const changes = JSON.parse(event.newValue);
+                        var changes = JSON.parse(event.newValue);
                         if (Array.isArray(changes)) {
                             changesQueue.push.apply(changesQueue, changes); // Using spread operator to push all changes
-                        } else {
+                        }
+                        else {
                             changesQueue.push(changes);
                         }
                         handleDbChange(changesQueue);
                     }
                 });
-
                 //watch for day change
                 if (_this.dayWatcher) {
                     clearInterval(_this.dayWatcher);
                 }
-                let savedDay = new Date(currentTime()).getDay();
-                _this.dayWatcher = setInterval(() => {
-                    const momentDay = new Date(currentTime()).getDay()
-
+                var savedDay = new Date(currentTime()).getDay();
+                _this.dayWatcher = setInterval(function () {
+                    var momentDay = new Date(currentTime()).getDay();
                     if (momentDay != savedDay) {
                         _this.readDatabase();
                         savedDay = momentDay;
-                        console.log("Day changed...")
+                        console.log("Day changed...");
                     }
-                }, 30000)
+                }, 30000);
                 return true;
-            }
-
-            validateIMS(IMSProducts, IMSItems) {
-                const _this = this;
-                const date = new Date(currentTime());
-
+            };
+            App.prototype.validateIMS = function (IMSProducts, IMSItems) {
+                var _this = this;
+                var date = new Date(currentTime());
                 //handle products
                 if (!IMSProducts) {
                     return;
                 }
-                IMSProducts.forEach(each => {
-                    let termDate = null;
+                IMSProducts.forEach(function (each) {
+                    var termDate = null;
                     if (each.terminateDate) {
                         termDate = new Date(each.terminateDate);
                     }
-                    const startDate = new Date(each.effectiveDate);
+                    var startDate = new Date(each.effectiveDate);
                     if ((each.terminateDate && termDate < date) || (each.effectiveDate && startDate > date)) {
                         each.enabled = false;
                     }
                 });
-
                 //handle menu items 03.20.2025
                 if (!IMSItems) {
                     return;
                 }
-
                 //filter for correct date on the full week request / fallback to correct day only if offline
-                const currentDate = currentTime();
-                const currentDay = date.getDay();
+                var currentDate = currentTime();
+                var currentDay = date.getDay();
                 // Validate dates
-                const dayMatch = IMSItems.filter(each => each.dayOfTheWeek === currentDay || each.dayOfTheWeek === -1);
-                const dateValidated = IMSItems.filter(each => each.date === currentDate || each.dayOfTheWeek === -1);
-
+                var dayMatch = IMSItems.filter(function (each) { return each.dayOfTheWeek === currentDay || each.dayOfTheWeek === -1; });
+                var dateValidated = IMSItems.filter(function (each) { return each.date === currentDate || each.dayOfTheWeek === -1; });
                 _this.IMSItems = window.allowMenusOffline ? dayMatch : dateValidated;
-
-            }
-
-            priceSchedule(menuItems) {
-                const currentDate = new Date(currentTime());
+            };
+            App.prototype.priceSchedule = function (menuItems) {
+                var currentDate = new Date(currentTime());
                 if (!menuItems) {
                     return;
                 }
-                const processScheduledPrices = (item) => {
+                var processScheduledPrices = function (item) {
                     if (item.scheduledPrices && item.scheduledPrices.length > 0) {
-                        item.scheduledPrices = item.scheduledPrices.sort((a, b) => new Date(a.date) - new Date(b.date));
-                        item.scheduledPrices.forEach((eachPrice) => {
+                        item.scheduledPrices = item.scheduledPrices.sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
+                        item.scheduledPrices.forEach(function (eachPrice) {
                             eachPrice.date = new Date(eachPrice.date);
                             if (eachPrice.date <= currentDate) {
                                 item.price = eachPrice.price;
@@ -243,25 +246,24 @@ var IMSintegration;
                         });
                     }
                 };
-                menuItems.forEach((menuItem) => {
+                menuItems.forEach(function (menuItem) {
                     processScheduledPrices(menuItem);
                     if (menuItem.modifiers && menuItem.modifiers.length > 0) {
-                        menuItem.modifiers.forEach((modifier) => {
+                        menuItem.modifiers.forEach(function (modifier) {
                             processScheduledPrices(modifier);
                         });
                     }
                 });
-            }
-
-            calculatePrice(apiItems, eachIMS, apiMods, apiDiscounts) {
-                const _this = this;
-                const extractFormula = IMSmappingId => {
-                    const first = IMSmappingId.indexOf("(") + 1;
-                    const last = IMSmappingId.lastIndexOf(")");
+            };
+            App.prototype.calculatePrice = function (apiItems, eachIMS, apiMods, apiDiscounts) {
+                var _this = this;
+                var extractFormula = function (IMSmappingId) {
+                    var first = IMSmappingId.indexOf("(") + 1;
+                    var last = IMSmappingId.lastIndexOf(")");
                     return IMSmappingId.substring(first, last);
                 };
-                const collectAllItems = (apiItems, apiMods, apiDiscounts) => {
-                    const allItems = [];
+                var collectAllItems = function (apiItems, apiMods, apiDiscounts) {
+                    var allItems = [];
                     if (apiItems)
                         allItems.push.apply(allItems, apiItems);
                     if (apiMods)
@@ -270,17 +272,17 @@ var IMSintegration;
                         allItems.push.apply(allItems, apiDiscounts);
                     return allItems;
                 };
-                const findPlaceholders = priceCalculation => {
+                var findPlaceholders = function (priceCalculation) {
                     // Regular expression to match placeholders (sequences of digits at least 5 characters long)
                     return priceCalculation.match(/\b\d{5,}\b/g) || [];
                 };
-                const replacePlaceholders = (priceCalculation, allItems) => {
-                    let matches = 0;
-                    const escapeRegExp = str => { return (str || "").replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'); };
-                    allItems.forEach(item => {
+                var replacePlaceholders = function (priceCalculation, allItems) {
+                    var matches = 0;
+                    var escapeRegExp = function (str) { return (str || "").replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'); };
+                    allItems.forEach(function (item) {
                         // replace standard mapping ids
                         if (item && item.mappingId && typeof item.mappingId === "string" && priceCalculation.includes(item.mappingId)) {
-                            const num = parseFloat(item.price);
+                            var num = parseFloat(item.price);
                             if (!isNaN(num)) {
                                 matches++;
                                 priceCalculation = priceCalculation.replace(new RegExp(escapeRegExp(item.mappingId), "g"), num);
@@ -289,12 +291,12 @@ var IMSintegration;
                         }
                         //check for missed matches that do not include "-"
                         if (_this.API === "qu" && _this.BRAND === "focus") {
-                            const softMatch = (item && typeof item.mappingId === "string" && item.mappingId.includes("-")) ? item.mappingId.split("-")[1] : null;
+                            var softMatch = (item && typeof item.mappingId === "string" && item.mappingId.includes("-")) ? item.mappingId.split("-")[1] : null;
                             if (softMatch && /\d+/.test(softMatch)) {
                                 // Replace exact numeric token occurrences only (word boundaries)
-                                const num_1 = parseFloat(item.price);
+                                var num_1 = parseFloat(item.price);
                                 if (!isNaN(num_1)) {
-                                    const re = new RegExp("\\b" + escapeRegExp(softMatch) + "\\b", "g");
+                                    var re = new RegExp("\\b" + escapeRegExp(softMatch) + "\\b", "g");
                                     if (re.test(priceCalculation)) {
                                         matches++;
                                         priceCalculation = priceCalculation.replace(re, num_1);
@@ -303,16 +305,16 @@ var IMSintegration;
                             }
                         }
                     });
-                    const updatedPrice = priceCalculation;
+                    var updatedPrice = priceCalculation;
                     return {
                         matches: matches,
                         updatedPrice: updatedPrice
                     };
                 };
-                let priceCalculation = extractFormula(eachIMS.IMSmappingId);
-                const allItems = collectAllItems(apiItems, apiMods, apiDiscounts);
-                const placeholders = findPlaceholders(priceCalculation);
-                const _a = replacePlaceholders(priceCalculation, allItems), matches = _a.matches, updatedPrice = _a.updatedPrice;
+                var priceCalculation = extractFormula(eachIMS.IMSmappingId);
+                var allItems = collectAllItems(apiItems, apiMods, apiDiscounts);
+                var placeholders = findPlaceholders(priceCalculation);
+                var _a = replacePlaceholders(priceCalculation, allItems), matches = _a.matches, updatedPrice = _a.updatedPrice;
                 // Replace all # characters with 0 (or another appropriate value)
                 priceCalculation = updatedPrice.replace(/#/g, "");
                 try {
@@ -330,26 +332,25 @@ var IMSintegration;
                     priceCalculation = priceCalculation.replace(/^0+/, "");
                 }
                 return priceCalculation;
-            }
-
-            formatWebtrition(webtritionItems) {
-                const _this = this;
+            };
+            App.prototype.formatWebtrition = function (webtritionItems) {
+                var _this = this;
                 if (!webtritionItems) {
                     return;
                 }
                 // Remove icons
-                const ignoreList = ignoreIcon.replace(/\s+/g, '').toLowerCase().split(",");
-                const formattedItems = webtritionItems.map(item => {
+                var ignoreList = ignoreIcon.replace(/\s+/g, '').toLowerCase().split(",");
+                var formattedItems = webtritionItems.map(function (item) {
                     if (item && item.icons) {
-                        item.icons = item.icons.filter(icon => !ignoreList.includes(icon.name.replace(/\s+/g, '').toLowerCase()));
+                        item.icons = item.icons.filter(function (icon) { return !ignoreList.includes(icon.name.replace(/\s+/g, '').toLowerCase()); });
                     }
                     return item;
                 });
                 // Format items
-                formattedItems.forEach(each => {
-                    let vegetarian = false;
-                    let vegan = false;
-                    const removeVege = icon => icon.name.toLowerCase() !== "vegetarian";
+                formattedItems.forEach(function (each) {
+                    var vegetarian = false;
+                    var vegan = false;
+                    var removeVege = function (icon) { return icon.name.toLowerCase() !== "vegetarian"; };
                     if (each.portion) {
                         each.portion = each.portion.replace("portion", "")
                             .replace("ounce", "oz")
@@ -387,12 +388,12 @@ var IMSintegration;
                     each.showProtein = !showProtein ? "hide" : each.showProtein;
                     each.showDescription = !showDescription ? "hide" : each.showDescription;
                     if (each.icons) {
-                        each.icons.forEach(eachIcon => {
+                        each.icons.forEach(function (eachIcon) {
                             if (eachIcon.name.includes("Vegetarian"))
                                 vegetarian = true;
                             if (eachIcon.name.includes("Vegan"))
                                 vegan = true;
-                            eachIcon.fileName = `media/icon_${eachIcon.name.replace(/\s+/g, '').toLowerCase()}.png`;
+                            eachIcon.fileName = "media/icon_".concat(eachIcon.name.replace(/\s+/g, '').toLowerCase(), ".png");
                             eachIcon.name = eachIcon.name.replace(/\s+/g, '').toLowerCase();
                         });
                         if (vegan && vegetarian) {
@@ -400,89 +401,89 @@ var IMSintegration;
                         }
                     }
                 });
-                formattedItems.sort((a, b) => { return a.sortOrder - b.sortOrder; });
+                formattedItems.sort(function (a, b) { return a.sortOrder - b.sortOrder; });
                 return formattedItems;
-            }
-
-            formatIMS(IMSItems) {
-                 const _this = this;
-                 if (!IMSItems) {
-                     return;
-                 }
-                 const toPriceSnapshot = value => {
-                     return value != null ? value.toString() : value;
-                 };
-                 const setPriceParts = item => {
-                     if (!Array.isArray(item.priceParts)) {
-                         item.priceParts = [];
-                     }
-                     const priceStr = item.price != null ? item.price.toString() : "";
-                     let dollars = "0";
-                     let cents = "00";
-                     if (priceStr.indexOf(".") > -1) {
-                         const parts = priceStr.split(".");
-                         dollars = parts[0] || "0";
-                         cents = parts[1] || "00";
-                     } else if (priceStr.trim() !== "") {
-                         dollars = priceStr;
-                     }
-                     if (cents.length < 2) {
-                         cents = (cents + "00").slice(0, 2);
-                     }
-                     item.priceParts.dollars = dollars;
-                     item.priceParts.cents = cents;
-                 };
-                 //make IMS mods accessible
-                 IMSItems.forEach(eachIMS => {
-                     eachIMS.IMSmappingId = _this.getBestMappingId(eachIMS);
-                     eachIMS.ApiSource = "ims";
-                     eachIMS.ApiSynced = false;
-                     if (eachIMS.modifiers) {
-                         eachIMS.modifiers.forEach(eachMod => {
-                             eachMod.productId = eachIMS.productId + "_" + eachMod.productModifierId;
-                             eachMod.categoryId = null;
-                             eachMod.subCategoryId = null;
-                             eachMod.ApiSource = "ims";
-                             eachMod.ApiSynced = false;
-                             eachMod.IMSmappingId = _this.getBestMappingId(eachMod);
-                             if (eachMod.price && !eachMod.IMSmappingId) {
-                                 eachIMS["Price_" + eachMod.productModifierId] = eachMod.price;
-                             }
-                             IMSItems.push(eachMod);
-                         });
-                     }
-                 });
-                 //new 01.29.2026 - prices and priceParts
-                 IMSItems.forEach(eachIMS => {
-                     eachIMS.prices = [];
-                     eachIMS.priceParts = [];
-                     eachIMS.prices.push({ source: "IMS", price: toPriceSnapshot(eachIMS.price) });
-                     setPriceParts(eachIMS);
-                     eachIMS.price = eachIMS.price || null;
-                 });
-             }
-
-            alignItems(apiItems, apiMods, apiDiscounts, IMSProducts) {
-                const _this = this;
+            };
+            App.prototype.formatIMS = function (IMSItems) {
+                var _this = this;
+                if (!IMSItems) {
+                    return;
+                }
+                var toPriceSnapshot = function (value) {
+                    return value != null ? value.toString() : value;
+                };
+                var setPriceParts = function (item) {
+                    if (!Array.isArray(item.priceParts)) {
+                        item.priceParts = [];
+                    }
+                    var priceStr = item.price != null ? item.price.toString() : "";
+                    var dollars = "0";
+                    var cents = "00";
+                    if (priceStr.indexOf(".") > -1) {
+                        var parts = priceStr.split(".");
+                        dollars = parts[0] || "0";
+                        cents = parts[1] || "00";
+                    }
+                    else if (priceStr.trim() !== "") {
+                        dollars = priceStr;
+                    }
+                    if (cents.length < 2) {
+                        cents = (cents + "00").slice(0, 2);
+                    }
+                    item.priceParts.dollars = dollars;
+                    item.priceParts.cents = cents;
+                };
+                //make IMS mods accessible
+                IMSItems.forEach(function (eachIMS) {
+                    eachIMS.IMSmappingId = _this.getBestMappingId(eachIMS);
+                    eachIMS.ApiSource = "ims";
+                    eachIMS.ApiSynced = false;
+                    if (eachIMS.modifiers) {
+                        eachIMS.modifiers.forEach(function (eachMod) {
+                            eachMod.productId = eachIMS.productId + "_" + eachMod.productModifierId;
+                            eachMod.categoryId = null;
+                            eachMod.subCategoryId = null;
+                            eachMod.ApiSource = "ims";
+                            eachMod.ApiSynced = false;
+                            eachMod.IMSmappingId = _this.getBestMappingId(eachMod);
+                            if (eachMod.price && !eachMod.IMSmappingId) {
+                                eachIMS["Price_" + eachMod.productModifierId] = eachMod.price;
+                            }
+                            IMSItems.push(eachMod);
+                        });
+                    }
+                });
+                //new 01.29.2026 - prices and priceParts
+                IMSItems.forEach(function (eachIMS) {
+                    eachIMS.prices = [];
+                    eachIMS.priceParts = [];
+                    eachIMS.prices.push({ source: "IMS", price: toPriceSnapshot(eachIMS.price) });
+                    setPriceParts(eachIMS);
+                    eachIMS.price = eachIMS.price || null;
+                });
+            };
+            App.prototype.alignItems = function (apiItems, apiMods, apiDiscounts, IMSProducts) {
+                var _this = this;
                 if (!IMSProducts.length || !apiItems.length || _this.API === "ims") {
                     _this.formatIMS(_this.IMSProducts);
                     return;
                 }
-                const toPriceSnapshot = value => {
+                var toPriceSnapshot = function (value) {
                     return value != null ? value.toString() : value;
                 };
-                const setPriceParts = item => {
+                var setPriceParts = function (item) {
                     if (!Array.isArray(item.priceParts)) {
                         item.priceParts = [];
                     }
-                    const priceStr = item.price != null ? item.price.toString() : "";
-                    let dollars = "0";
-                    let cents = "00";
+                    var priceStr = item.price != null ? item.price.toString() : "";
+                    var dollars = "0";
+                    var cents = "00";
                     if (priceStr.indexOf(".") > -1) {
-                        const parts = priceStr.split(".");
+                        var parts = priceStr.split(".");
                         dollars = parts[0] || "0";
                         cents = parts[1] || "00";
-                    } else if (priceStr.trim() !== "") {
+                    }
+                    else if (priceStr.trim() !== "") {
                         dollars = priceStr;
                     }
                     if (cents.length < 2) {
@@ -492,9 +493,9 @@ var IMSintegration;
                     item.priceParts.cents = cents;
                 };
                 // Make IMS mods accessible
-                IMSProducts.forEach(IMSProduct => {
+                IMSProducts.forEach(function (IMSProduct) {
                     if (IMSProduct.modifiers) {
-                        IMSProduct.modifiers.forEach(modifier => {
+                        IMSProduct.modifiers.forEach(function (modifier) {
                             modifier.productId = "".concat(IMSProduct.productId, "_").concat(modifier.productModifierId);
                             modifier.categoryId = null;
                             modifier.subCategoryId = null;
@@ -503,7 +504,7 @@ var IMSintegration;
                                 IMSProduct["Price_".concat(modifier.productModifierId)] = modifier.price;
                             }
                             if (modifier.IMSmappingId) {
-                                apiItems.forEach(apiItem => {
+                                apiItems.forEach(function (apiItem) {
                                     if (modifier.IMSmappingId === apiItem.mappingId) {
                                         IMSProduct["Price_".concat(modifier.productModifierId)] = apiItem.price;
                                     }
@@ -516,7 +517,7 @@ var IMSintegration;
                     IMSProduct.IMSmappingId = _this.getBestMappingId(IMSProduct);
                 });
                 // Align products
-                IMSProducts.forEach(IMSProduct => {
+                IMSProducts.forEach(function (IMSProduct) {
                     IMSProduct.ApiSynced = false;
                     IMSProduct.APIActive = false;
                     IMSProduct.ApiSource = "ims";
@@ -526,9 +527,8 @@ var IMSintegration;
                     setPriceParts(IMSProduct);
                     IMSProduct.price = IMSProduct.price || null;
                     if (IMSProduct.IMSmappingId.includes("calc(") && IMSProduct.IMSmappingId.includes(")")) {
-                        const calculatedPrice = _this.calculatePrice(apiItems, IMSProduct, apiMods, apiDiscounts);
+                        var calculatedPrice = _this.calculatePrice(apiItems, IMSProduct, apiMods, apiDiscounts);
                         IMSProduct.price = calculatedPrice || IMSProduct.price;
-
                         IMSProduct.ApiSynced = calculatedPrice ? true : false;
                         IMSProduct.APIActive = IMSProduct.price ? true : false;
                         IMSProduct.IMSmappingId = IMSProduct.productId;
@@ -537,18 +537,17 @@ var IMSintegration;
                         // Record API snapshot only when the calculation succeeded.
                         if (calculatedPrice) {
                             IMSProduct.prices.push({ source: _this.API, price: IMSProduct.price });
-                        } else {
-                            IMSProduct.prices.push({ source: _this.API, price: null});
+                        }
+                        else {
+                            IMSProduct.prices.push({ source: _this.API, price: null });
                         } // Set mappingId to productId for calculated items to prevent accidental matches
                         return;
                     }
                     //Align mods - lowest priority
-                    apiMods.forEach(apiMod => {
+                    apiMods.forEach(function (apiMod) {
                         // Use exact match for all APIs except "qu"
-                        if (
-                            (_this.BRAND === "focus" && _this.API === "qu" && apiMod.mappingId && IMSProduct.IMSmappingId && apiMod.mappingId.includes(IMSProduct.IMSmappingId)) ||
-                            (apiMod.mappingId === IMSProduct.IMSmappingId && IMSProduct.IMSmappingId)
-                        ) {
+                        if ((_this.BRAND === "focus" && _this.API === "qu" && apiMod.mappingId && IMSProduct.IMSmappingId && apiMod.mappingId.includes(IMSProduct.IMSmappingId)) ||
+                            (apiMod.mappingId === IMSProduct.IMSmappingId && IMSProduct.IMSmappingId)) {
                             IMSProduct.price = apiMod.price ? parseFloat(apiMod.price).toFixed(2) : IMSProduct.price;
                             IMSProduct.outOfStock = apiMod.isOutOfStock || IMSProduct.outOfStock;
                             IMSProduct.ApiSynced = true;
@@ -569,11 +568,9 @@ var IMSintegration;
                         }
                     });
                     //Align Items - highest priority
-                    apiItems.forEach(apiItem => {
-                        if (
-                            (_this.BRAND === "focus" && _this.API === "qu" && apiItem.mappingId && IMSProduct.IMSmappingId && apiItem.mappingId.includes(IMSProduct.IMSmappingId)) ||
-                            (apiItem.mappingId === IMSProduct.IMSmappingId && IMSProduct.IMSmappingId)
-                        ) {
+                    apiItems.forEach(function (apiItem) {
+                        if ((_this.BRAND === "focus" && _this.API === "qu" && apiItem.mappingId && IMSProduct.IMSmappingId && apiItem.mappingId.includes(IMSProduct.IMSmappingId)) ||
+                            (apiItem.mappingId === IMSProduct.IMSmappingId && IMSProduct.IMSmappingId)) {
                             IMSProduct.price = apiItem.price ? parseFloat(apiItem.price).toFixed(2) : IMSProduct.price;
                             IMSProduct.outOfStock = apiItem.isOutOfStock || IMSProduct.outOfStock;
                             IMSProduct.ApiSynced = true;
@@ -597,12 +594,10 @@ var IMSintegration;
                 _this.IMSProducts = IMSProducts;
                 _this.integrationItems = apiItems;
                 _this.integrationModifiers = apiMods;
-            }
-
-            getBestMappingId(item) {
-                const _this = this;
-                let mappingIdValue = "";
-
+            };
+            App.prototype.getBestMappingId = function (item) {
+                var _this = this;
+                var mappingIdValue = "";
                 switch (_this.API) {
                     case "qu":
                         mappingIdValue = item.quBeyondId || item.secondaryExternalId || item.externalId || "";
@@ -626,7 +621,7 @@ var IMSintegration;
                         mappingIdValue = item.simphonyId || item.externalId || item.secondaryExternalId || "";
                         break;
                     case "transact":
-                        mappingIdValue = item.transactID || item.externalId || item.secondaryExternalId || "";
+                        mappingIdValue = item.transactId || item.externalId || item.secondaryExternalId || "";
                         break;
                     case "centricos":
                         mappingIdValue = item.centricOS || item.externalId || item.secondaryExternalId || "";
@@ -634,103 +629,110 @@ var IMSintegration;
                     case "venuenext":
                         mappingIdValue = item.venueNext || item.externalId || item.secondaryExternalId || "";
                         break;
+                    case "biggby":
+                        mappingIdValue = item.biggbyId || item.externalId || item.secondaryExternalId || "";
+                        break;
+                    default:
+                        mappingIdValue = item.externalId || item.secondaryExternalId || "";    
                 }
-
                 return mappingIdValue;
-            }
-
-            mergeIMS(IMSProducts, IMSItems) {
-                const _this = this;
+            };
+            App.prototype.mergeIMS = function (IMSProducts, IMSItems) {
+                var _this = this;
                 if (!IMSItems || !IMSItems.length) {
                     return [];
                 }
-                IMSItems.forEach(eachItem => {
-                    IMSProducts.forEach(eachProduct => {
+                IMSItems.forEach(function (eachItem) {
+                    IMSProducts.forEach(function (eachProduct) {
                         if (eachProduct.productId === eachItem.productId) {
                             eachItem = Object.assign(eachItem, eachProduct);
                         }
                     });
                 });
-                IMSItems = IMSItems.sort((a, b) => {
+                IMSItems = IMSItems.sort(function (a, b) {
                     return a.sortOrder - b.sortOrder;
                 });
                 return IMSItems;
-            }
-
-            readDatabase() {
-                const _this = this;
+            };
+            App.prototype.readDatabase = function () {
+                var _this = this;
                 if (!_this.API) {
                     return;
                 }
                 if (isUsingIndexedDB) {
                     try {
                         _this.db.integration_products
-                            .toArray(result => {
-                                _this.integrationItems = result;
-                            })
-                            .then(() => {
-                                return _this.db.integration_modifiers.toArray(result => {
-                                    _this.integrationMods = result;
-                                });
-                            })
-                            .then(() => {
-                                return _this.db.IMS_menuItems.toArray(result => {
-                                    _this.IMSItems = result;
-                                });
-                            })
-                            .then(() => {
-                                return _this.db.integration_discounts.toArray(result => {
-                                    _this.integrationDiscounts = result;
-                                });
-                            })
-                            .then(() => {
-                                return _this.db.IMS_products.toArray(result => {
-                                    _this.IMSProducts = result;
-                                });
-                            })
-                            .then(() => {
-                                return _this.db.IMS_settings.toArray(result => {
-                                    _this.IMSSettings = result;
-                                });
-                            })
-                            .then(() => {
-                                return _this.db.TRM_assetZones.toArray(result => {
-                                    _this.TRMAssetZones = result;
-                                });
-                            })
-                            .then(() => {
-                                return _this.db.TRM_menuItems.toArray(result => {
-                                    _this.TRMMenuItems = result;
-                                });
-                            })
-                            .then(() => {
-                                _this.priceSchedule(_this.IMSProducts);
-                                _this.validateIMS(_this.IMSProducts, _this.IMSItems);
-                                try {
-                                    _this.alignItems(_this.integrationItems, _this.integrationMods, _this.integrationDiscounts, _this.IMSProducts);
-                                } catch (err) {
-                                    // move on...
-                                }
-                                if (_this.API === "trm" || _this.API === "ims") { _this.formatIMS(_this.IMSProducts); }
-                                if (_this.API === "webtrition") { _this.integrationItems = _this.formatWebtrition(_this.integrationItems); }
-                                _this.IMSItems = _this.mergeIMS(_this.IMSProducts, _this.IMSItems);
-                                menuLayout.init(_this.IMSItems, _this.IMSProducts, _this.IMSSettings, _this.integrationItems, _this.API, _this.TRMAssetZones, _this.TRMMenuItems);
-
-                                $(".loading").hide();
-                                $(".asset-wrapper").removeClass("blur");
-                            })
-                            .catch(error => {
-                                //catch database clear event and reopen
-                                if (error.name === "DatabaseClosedError") {
-                                    //wait for previous leader 
-                                    _this.fullStart = true;
-                                    integration.openDatabase().then(() => {
-                                        _this.db = integration.db;
-                                    })
-                                }
+                            .toArray(function (result) {
+                            _this.integrationItems = result;
+                        })
+                            .then(function () {
+                            return _this.db.integration_modifiers.toArray(function (result) {
+                                _this.integrationMods = result;
                             });
-                    } catch (err) {
-                        console.error(err)
+                        })
+                            .then(function () {
+                            return _this.db.IMS_menuItems.toArray(function (result) {
+                                _this.IMSItems = result;
+                            });
+                        })
+                            .then(function () {
+                            return _this.db.integration_discounts.toArray(function (result) {
+                                _this.integrationDiscounts = result;
+                            });
+                        })
+                            .then(function () {
+                            return _this.db.IMS_products.toArray(function (result) {
+                                _this.IMSProducts = result;
+                            });
+                        })
+                            .then(function () {
+                            return _this.db.IMS_settings.toArray(function (result) {
+                                _this.IMSSettings = result;
+                            });
+                        })
+                            .then(function () {
+                            return _this.db.TRM_assetZones.toArray(function (result) {
+                                _this.TRMAssetZones = result;
+                            });
+                        })
+                            .then(function () {
+                            return _this.db.TRM_menuItems.toArray(function (result) {
+                                _this.TRMMenuItems = result;
+                            });
+                        })
+                            .then(function () {
+                            _this.priceSchedule(_this.IMSProducts);
+                            _this.validateIMS(_this.IMSProducts, _this.IMSItems);
+                            try {
+                                _this.alignItems(_this.integrationItems, _this.integrationMods, _this.integrationDiscounts, _this.IMSProducts);
+                            }
+                            catch (err) {
+                                // move on...
+                            }
+                            if (_this.API === "trm" || _this.API === "ims") {
+                                _this.formatIMS(_this.IMSProducts);
+                            }
+                            if (_this.API === "webtrition") {
+                                _this.integrationItems = _this.formatWebtrition(_this.integrationItems);
+                            }
+                            _this.IMSItems = _this.mergeIMS(_this.IMSProducts, _this.IMSItems);
+                            menuLayout.init(_this.IMSItems, _this.IMSProducts, _this.IMSSettings, _this.integrationItems, _this.API, _this.TRMAssetZones, _this.TRMMenuItems);
+                            $(".loading").hide();
+                            $(".asset-wrapper").removeClass("blur");
+                        })
+                            .catch(function (error) {
+                            //catch database clear event and reopen
+                            if (error.name === "DatabaseClosedError") {
+                                //wait for previous leader 
+                                _this.fullStart = true;
+                                integration.openDatabase().then(function () {
+                                    _this.db = integration.db;
+                                });
+                            }
+                        });
+                    }
+                    catch (err) {
+                        console.error(err);
                     }
                 }
                 if (!isUsingIndexedDB) {
@@ -789,57 +791,48 @@ var IMSintegration;
                         _this.alignItems(_this.integrationItems, _this.integrationMods, _this.integrationDiscounts, _this.IMSProducts);
                     }
                     catch (err) { }
-                    if (_this.API === "trm" || _this.API === "ims") { _this.formatIMS(_this.IMSProducts); }
-                    if (_this.API === "webtrition") { _this.integrationItems = _this.formatWebtrition(_this.integrationItems); }
+                    if (_this.API === "trm" || _this.API === "ims") {
+                        _this.formatIMS(_this.IMSProducts);
+                    }
+                    if (_this.API === "webtrition") {
+                        _this.integrationItems = _this.formatWebtrition(_this.integrationItems);
+                    }
                     $(".loading").hide();
                     _this.IMSItems = _this.mergeIMS(_this.IMSProducts, _this.IMSItems);
                     menuLayout.init(_this.IMSItems, _this.IMSProducts, _this.IMSSettings, _this.integrationItems, _this.API, _this.TRMAssetZones, _this.TRMMenuItems);
                 }
-            }
-        }
-
+            };
+            return App;
+        }());
         return App;
     })();
     IMSintegration.App = App;
 })(IMSintegration || (IMSintegration = {}));
-
 //helper functions
-var validateItems = (items, station, period, type) => {
-    const currentDay = currentTime();
-    station = station || "";
-    period = period || "";
+var validateItems = function (items, station, period, type) {
+    var currentDay = currentTime();
+    station = station || mealStation || AssetConfiguration.Display || "undefined";
+    period = period || mealPeriod || AssetConfiguration.Daypart || "undefined";
     type = type || menuType || "undefined";
     // Validate dates
-    items.forEach(each => {
+    items.forEach(function (each) {
         // mealTracker || webtrition || IMS || bonAppetit
         each.period = each.period || each.mealPeriod || each.imsDaypartName || each.daypart_label || "undefined";
         each.station = each.category || each.mealStation || each.menuZoneId || each.station || "undefined";
         //meal tracker
         each.type = each.type || "undefined";
     });
-    const dateValidated = items.filter(each => { return new Date(each.date).toDateString() === new Date(currentDay).toDateString(); });
+    var dateValidated = items.filter(function (each) { return new Date(each.date).toDateString() === new Date(currentDay).toDateString(); });
     if (!dateValidated.length) {
         IMSintegration.Integration.prototype.showConnect(true, "forestgreen", "integration", station + " not serving", "error");
-        //full screen error
-        var obj = {
-            "issue": "No Menu Items Available",
-            "source": source,
-            "detail": "There are no menu items available for " + station + " on " + new Date(currentDay).toLocaleDateString() + "."
-        };
-        if($(".full-screen-error-wrapper").length){
-            return;
-        }
-        var connect = Mustache.to_html(FULLSCREENERROR, obj);
-        $("body").append(connect);
         return [];
     }
-    const typeValidated = dateValidated.filter(each => { return normalize(each.type) === normalize(type); });
+    var typeValidated = dateValidated.filter(function (each) { return normalize(each.type) === normalize(type); });
     if (!typeValidated.length) {
         IMSintegration.Integration.prototype.showConnect(true, "forestgreen", "integration", station + " not serving", "error");
         return [];
     }
-
-    const schedulerValidated = typeValidated.filter(each => {
+    var schedulerValidated = typeValidated.filter(function (each) {
         each.engaged = each.hasOwnProperty('engaged') ? each.engaged : true;
         each.active = each.hasOwnProperty('active') ? each.active : true;
         each.enabled = each.hasOwnProperty('enabled') ? each.enabled : true;
@@ -860,34 +853,13 @@ var validateItems = (items, station, period, type) => {
             .replace(/[^a-zA-Z0-9]/g, "") // 3. Remove everything else
             .toLowerCase(); // 4. Convert to lowercase
     }
-    function isWildcardValue(str) {
-        if (str === undefined || str === null) {
-            return true;
-        }
-        const value = String(str).trim().toLowerCase();
-        return value === "" || value === "undefined" || value === "null";
-    }
-
-    const stationIsWildcard = isWildcardValue(station);
-    const periodIsWildcard = isWildcardValue(period);
  
-    const filteredItems = schedulerValidated.filter(each => {
-        const periodMatches = periodIsWildcard || normalize(each.period) === normalize(period);
-        const stationMatches = stationIsWildcard || normalizeStation(each.station) === normalizeStation(station);
-        return periodMatches && stationMatches;
+    var filteredItems = schedulerValidated.filter(function (each) {
+        return normalize(each.period) === normalize(period) &&
+            normalizeStation(each.station) === normalizeStation(station);
     });
     if (!filteredItems.length) {
         IMSintegration.Integration.prototype.showConnect(true, "forestgreen", "integration", station + " not serving", "error");
-        var obj = {
-            "issue": "Station Not Serving",
-            "source": "validate",
-            "detail": "This screen has no menu Items published and is looking for the Station  " + `"` + station + `"` + "."
-        };
-        if($(".full-screen-error-wrapper").length){
-            return;
-        }
-        var connect = Mustache.to_html(FULLSCREENERROR, obj);
-        $("body").append(connect);
         return [];
     }
     IMSintegration.Integration.prototype.showConnect(false, "forestgreen", "integration");

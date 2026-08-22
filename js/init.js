@@ -10,10 +10,10 @@ const version = 65;
 const isUsingSettings = true;
 const fullPreview = true;
 //leave settingKey blank for co-branded assets
-var settingKey = "OTA3MmI3N2EtM2U5Yi00OTZkLTgzN2QtN2YyMDRmZTgwZjY0";
-var settingId_PartnerAPI = ["607"];
-var settingsId_Brand = ["608"]; //Sap Code / Business Unit
-var settingId_PartnerSite = ["609"]; //Venue / Location
+var settingKey = "MWUyZjU1NzktM2ZlZi00Yzc0LThlODQtMWE2MzFjYzQ4NDlj";
+var settingId_PartnerAPI = ["599"];
+var settingsId_Brand = ["600"]; //Sap Code / Business Unit
+var settingId_PartnerSite = ["601"]; //Venue / Location
 //experimental placeholdder for Centrix
 //create
 // jeOl2jyXzotZWQa7ROvrIpOM4M473WT5Y1g0wDP1tr7Oq0lXzXUq0yNMAO13FK6jjJ8
@@ -58,10 +58,10 @@ const Zone_ID = "";
 const Duration = "";
 const zoneHeight = "";
 const zoneWidth = "";
-var Partner_API = "webtrition";
-var Brand = "31709";
-var Establishment = "21332";
-const apiKey = "";
+var Partner_API = "";
+var Brand = "";
+var Establishment = "";
+const apiKey = "MWUyZjU1NzktM2ZlZi00Yzc0LThlODQtMWE2MzFjYzQ4NDlj";
 //yyyy-mm-dd ex.2026-02-23
 const dateToRequest = "";
 const devSiteKeys = ["6091", "4873", "4907", "5448", "4756", "6820"];

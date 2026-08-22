@@ -363,9 +363,34 @@ p {
     margin-right: 0.75rem;
 }
 
+.dropdown-item .material-icons {
+    width: 1.25rem;
+    margin-right: 0.75rem;
+    font-size: 1.25rem;
+}
+
 .dropdown-item span {
     font-size: 0.875rem;
     font-weight: 500;
+}
+
+.content-forecaster-options .options-dropdown {
+    width: 16rem;
+}
+
+.content-forecaster-options .dropdown-item {
+    min-height: 3.25rem;
+    padding: 1rem 1.25rem;
+}
+
+.content-forecaster-options .dropdown-item .material-icons {
+    width: 1.5rem;
+    margin-right: 1rem;
+    font-size: 1.5rem;
+}
+
+.content-forecaster-options .dropdown-item > span:last-child {
+    font-size: 1rem;
 }
 
 .fallback-wrapper {

@@ -685,15 +685,16 @@
           +   "</section>"
           + "</div>"
           + "<div class='hs-foot'>"
-          +   "<div class='hs-foot-overview' data-foot='overview'>"
+          +   "<div class='hs-foot-overview' data-foot='overview' style='flex-direction:column'>"
+          +     "<button type='button' class='hs-btn hs-primary hs-block' data-hs='saveDoc' disabled>Save changes</button>"
+          +     "<button type='button' class='hs-btn hs-ghost hs-block' data-hs='create'><span class='material-icons'>add</span>Create hotspot</button>"
           +     "<button type='button' class='hs-btn hs-ghost hs-block' data-hs='removeOverride' style='display:none'></button>"
-          +     "<button type='button' class='hs-btn hs-primary hs-block' data-hs='create'><span class='material-icons'>add</span>Create hotspot</button>"
           +   "</div>"
           +   "<div class='hs-foot-editor' data-foot='editor' hidden>"
           +     "<button type='button' class='hs-btn hs-danger' data-hs='remove'>Remove</button>"
           +     "<span class='hs-foot-gap'></span>"
           +     "<button type='button' class='hs-btn hs-ghost' data-hs='revert' disabled>Revert</button>"
-          +     "<button type='button' class='hs-btn hs-primary' data-hs='save' disabled>Save</button>"
+          +     "<button type='button' class='hs-btn hs-primary' data-hs='save' disabled>Apply</button>"
           +   "</div>"
           + "</div>";
         modalHost.prepend(modal);
@@ -708,6 +709,7 @@
             else if (action === "removeOverride") { removeOverride(); }
             else if (action === "revert") { revertEditor(); }
             else if (action === "save") { saveEditor(); }
+            else if (action === "saveDoc") { saveDocument(); }
         });
         $modal.on("change", "[data-hs-field='sourcePage']", function () {
             var page = numberOrNull($(this).val());
@@ -921,6 +923,15 @@
         $modal.find("[data-hs='revert']").prop("disabled", !state.dirty);
     }
 
+    function isDirty() {
+        return JSON.stringify(state.document) !== JSON.stringify(state.savedDocument);
+    }
+
+    function updateOverviewButtons($modal) {
+        $modal = $modal || $(ensureModal());
+        $modal.find("[data-hs='saveDoc']").prop("disabled", !isDirty());
+    }
+
     function markDirty() {
         state.dirty = true;
         updateEditorButtons($(ensureModal()));
@@ -978,6 +989,7 @@
 
     function renderOverview() {
         var $modal = $(ensureModal());
+        updateOverviewButtons($modal);
         var levels = availableLevels(state.ccgs);
         var allowed = allowedSaveLevels();
         if (!state.saveLevel || allowed.indexOf(state.saveLevel) < 0) {
@@ -1105,6 +1117,9 @@
     }
 
     function exitConfigure() {
+        if (isDirty() && !window.confirm("You have unsaved changes. Discard them?")) {
+            return;
+        }
         state.document = cloneDocument(state.savedDocument);
         state.configuring = false;
         state.editing = null;
@@ -1123,13 +1138,8 @@
         var $modal = $(ensureModal());
         var name = ($modal.find("[data-hs-field='name']").val() || "").trim();
         var target = numberOrNull($modal.find("[data-hs-field='target']").val());
-        var level = state.saveLevel || "Concept";
         if (!target) {
             showStatus("Choose a target page before saving.", true);
-            return;
-        }
-        if (allowedSaveLevels().indexOf(level) < 0) {
-            showStatus("A " + state.effectiveLevel + " override is in place. Remove it before saving to " + level + ".", true);
             return;
         }
         state.editing.name = name;
@@ -1146,16 +1156,31 @@
         } else {
             state.document.hotspots.push(state.editing);
         }
-        showStatus("Saving\u2026", false);
-        $modal.find("[data-hs='save'],[data-hs='revert']").prop("disabled", true);
+        finishToOverview();
+    }
+
+    // Persists the whole working document to the portal; the single commit point for all pending edits.
+    function saveDocument() {
+        if (!isDirty()) {
+            return;
+        }
+        var level = state.saveLevel || "Concept";
+        if (allowedSaveLevels().indexOf(level) < 0) {
+            window.alert("A " + state.effectiveLevel + " override is in place. Remove it before saving to " + level + ".");
+            return;
+        }
+        var $btn = $(ensureModal()).find("[data-hs='saveDoc']");
+        $btn.prop("disabled", true).text("Saving\u2026");
         saveAtLevel(level).then(function () {
             state.savedDocument = cloneDocument(state.document);
             return resolveEffectiveDetail();
         }).then(function () {
-            finishToOverview();
+            $btn.text("Save changes");
+            renderOverview();
         }).catch(function (error) {
-            showStatus(error.message, true);
-            updateEditorButtons($modal);
+            $btn.text("Save changes");
+            window.alert(error && error.message ? error.message : "Unable to save changes.");
+            updateOverviewButtons();
         });
     }
 
@@ -1184,25 +1209,8 @@
             return;
         }
         var id = state.editing.id;
-        var savedHas = state.savedDocument.hotspots.some(function (item) { return item.id === id; });
-        if (savedHas && !window.confirm("Remove this hotspot?")) {
-            return;
-        }
         state.document.hotspots = state.document.hotspots.filter(function (item) { return item.id !== id; });
-        if (!savedHas) {
-            finishToOverview();
-            return;
-        }
-        var level = state.saveLevel || "Concept";
-        showStatus("Removing\u2026", false);
-        saveAtLevel(level).then(function () {
-            state.savedDocument = cloneDocument(state.document);
-            return resolveEffectiveDetail();
-        }).then(function () {
-            finishToOverview();
-        }).catch(function (error) {
-            showStatus(error.message, true);
-        });
+        finishToOverview();
     }
 
     function contextPoint(event) {

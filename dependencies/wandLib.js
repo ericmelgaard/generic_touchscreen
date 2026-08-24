@@ -1652,6 +1652,10 @@ async function readClientDB(options = {}) {
           layersInDaypart.forEach(function (layer) {
             var layerRegions = layer && Array.isArray(layer.Regions) ? layer.Regions : [];
             layerRegions.forEach(function (region) {
+              // CF bug workaround: region ID 1 is a bogus "Takeover" placeholder that should never surface.
+              if (Number(region && (region.ID !== undefined ? region.ID : region.RegionId)) === 1) {
+                return;
+              }
               var cfZones = region && Array.isArray(region.Zones) ? region.Zones : [];
               cfZones.forEach(function (zone) {
                 if (zoneIdFilter !== null && Number(zone.ID || zone.ZoneId || 0) !== zoneIdFilter) {
@@ -1760,6 +1764,10 @@ async function readClientDB(options = {}) {
             var layerZOrder = Number(layer.ZOrder || 0);
             var layerRegions = layer && Array.isArray(layer.Regions) ? layer.Regions : [];
             layerRegions.forEach(function (region) {
+              // CF bug workaround: region ID 1 is a bogus "Takeover" placeholder that should never surface.
+              if (Number(region && (region.ID !== undefined ? region.ID : region.RegionId)) === 1) {
+                return;
+              }
               var cfZones = region && Array.isArray(region.Zones) ? region.Zones : [];
               // Some regions (e.g. a "Takeover" placeholder) have no zones defined yet;
               // still record the region itself so its page isn't dropped from the list.

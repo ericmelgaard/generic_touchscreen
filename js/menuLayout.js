@@ -803,6 +803,12 @@ var IMSintegration;
                     nutritionExtension: 30000,
                     activityEvents: ['click', 'touchstart', 'touchmove', 'mousemove'],
                     shouldTrackActivity: function () {
+                        if (window.HotspotController && typeof window.HotspotController.getState === 'function') {
+                            var hotspotState = window.HotspotController.getState();
+                            if (hotspotState && hotspotState.configuring) {
+                                return false;
+                            }
+                        }
                         return $('.home:visible').length === 0;
                     },
                     onTimeout: function () {

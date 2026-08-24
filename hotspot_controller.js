@@ -1055,10 +1055,34 @@
         });
     }
 
+    // Suspend/resume the runtime idle timers only at the two real open/close points
+    // (configure/exitConfigure) instead of gating every idle check on state.configuring.
+    function suspendIdle() {
+        if (typeof InactivityManager !== "undefined" && typeof InactivityManager.pause === "function") {
+            InactivityManager.pause();
+        }
+        if (window.menuLayout && typeof window.menuLayout.clearHomeIdleTimer === "function") {
+            window.menuLayout.clearHomeIdleTimer();
+        }
+        if (window.menuLayout && typeof window.menuLayout.dismissHomeIdleOverlay === "function") {
+            window.menuLayout.dismissHomeIdleOverlay(false);
+        }
+    }
+
+    function resumeIdle() {
+        if (typeof InactivityManager !== "undefined" && typeof InactivityManager.resume === "function") {
+            InactivityManager.resume();
+        }
+        if (window.menuLayout && typeof window.menuLayout.startHomeIdleTimer === "function") {
+            window.menuLayout.startHomeIdleTimer();
+        }
+    }
+
     function configure() {
         if (!state.enabled) {
             return;
         }
+        suspendIdle();
         state.configuring = true;
         state.selectedHotspotId = null;
         render();
@@ -1129,6 +1153,7 @@
         state.selectedHotspotId = null;
         hideModal();
         render();
+        resumeIdle();
     }
 
     function saveEditor() {
@@ -1321,15 +1346,48 @@
 
     function onMenuItems(menuItems) {
         state.menuItems = Array.isArray(menuItems) ? menuItems : [];
-        if (state.dataInitialized) {
+
+        if (!state.dataInitialized) {
+            state.dataInitialized = true;
+            state.ccgs = normalizeCCGS(readMostRecentCCGS());
+            locateParent();
+            loadCanonicalDocument().then(render).catch(function (error) {
+                console.error("Hotspot authoring load failed:", error);
+            });
             return;
         }
-        state.dataInitialized = true;
-        state.ccgs = normalizeCCGS(readMostRecentCCGS());
-        locateParent();
-        loadCanonicalDocument().then(render).catch(function (error) {
-            console.error("Hotspot authoring load failed:", error);
-        });
+
+        // Later calls happen when our own portal writes round-trip back through the idb cache;
+        // refresh the parent's value and re-render so hotspots reflect the latest saved layout.
+        refreshParentFromMenuItems();
+        if (state.editing || isDirty()) {
+            return;
+        }
+        var canonical = normalizeDocument(state.parent ? state.parent.value : null);
+        if (JSON.stringify(canonical) === JSON.stringify(state.document)) {
+            return;
+        }
+        state.document = canonical;
+        state.savedDocument = cloneDocument(state.document);
+        render();
+        if (state.configuring && state.screen === "overview") {
+            renderOverview();
+        }
+    }
+
+    function refreshParentFromMenuItems() {
+        var existing = findParent(state.menuItems);
+        if (!existing) {
+            return;
+        }
+        var existingId = numberOrNull(existing.id || existing.MenuItemId);
+        var value = findTextValue(existing);
+        if (!state.parent) {
+            state.parent = { id: existingId, name: getHotspotItemName(), value: value };
+        } else {
+            state.parent.id = existingId !== null ? existingId : state.parent.id;
+            state.parent.value = value;
+        }
     }
 
     function onAssets(assets) {
@@ -1342,6 +1400,18 @@
             state.pages.push({
                 id: id,
                 name: String(asset.regionName || asset.zoneName || ("Page " + id))
+            });
+        });
+        // window.TrmRegions (CF only) lists every layer/region regardless of active assets,
+        // so pages with no currently-engaged content still show up for authoring.
+        (Array.isArray(window.TrmRegions) ? window.TrmRegions : []).forEach(function (region) {
+            var id = numberOrNull(region && region.layerZOrder);
+            if (!id || state.pages.some(function (page) { return page.id === id; })) {
+                return;
+            }
+            state.pages.push({
+                id: id,
+                name: String((region && (region.regionName || region.zoneName)) || ("Page " + id))
             });
         });
         state.pages.sort(function (left, right) { return left.id - right.id; });

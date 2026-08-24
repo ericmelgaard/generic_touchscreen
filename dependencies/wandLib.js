@@ -1742,6 +1742,68 @@ async function readClientDB(options = {}) {
     return rows;
   }
 
+  // Walks the same schedule tree as extractAssetDetailFromSchedule, but without filtering on
+  // asset day/time-active state, so layers/regions/zones with no currently-engaged asset are
+  // still captured. Used only by the Content Forecaster hotspot config tool to list every page.
+  function extractAllRegionsFromSchedule(scheduleData) {
+    var rows = [];
+    var seen = {};
+    var displayGroups = scheduleData && Array.isArray(scheduleData.DisplayGroups) ? scheduleData.DisplayGroups : [];
+
+    displayGroups.forEach(function (group) {
+      var deployments = group && Array.isArray(group.Deployments) ? group.Deployments : [];
+      deployments.forEach(function (deployment) {
+        var dayparts = deployment && Array.isArray(deployment.Dayparts) ? deployment.Dayparts : [];
+        dayparts.forEach(function (daypart) {
+          var layersInDaypart = daypart && Array.isArray(daypart.Layers) ? daypart.Layers : [];
+          layersInDaypart.forEach(function (layer) {
+            var layerZOrder = Number(layer.ZOrder || 0);
+            var layerRegions = layer && Array.isArray(layer.Regions) ? layer.Regions : [];
+            layerRegions.forEach(function (region) {
+              var cfZones = region && Array.isArray(region.Zones) ? region.Zones : [];
+              // Some regions (e.g. a "Takeover" placeholder) have no zones defined yet;
+              // still record the region itself so its page isn't dropped from the list.
+              if (!cfZones.length) {
+                var regionKey = layerZOrder + "|region-" + String(region.ID || region.RegionId || "");
+                if (seen[regionKey]) {
+                  return;
+                }
+                seen[regionKey] = true;
+                rows.push({
+                  layerId: String(layer.ID || ""),
+                  layerZOrder: layerZOrder,
+                  zoneId: "",
+                  zoneName: "",
+                  regionId: String(region.ID || region.RegionId || ""),
+                  regionName: String(region.Name || "")
+                });
+                return;
+              }
+              cfZones.forEach(function (zone) {
+                var zoneId = String(zone.ID || zone.ZoneId || "");
+                var key = layerZOrder + "|" + zoneId;
+                if (seen[key]) {
+                  return;
+                }
+                seen[key] = true;
+                rows.push({
+                  layerId: String(layer.ID || ""),
+                  layerZOrder: layerZOrder,
+                  zoneId: zoneId,
+                  zoneName: String(zone.Name || ""),
+                  regionId: String(region.ID || region.RegionId || ""),
+                  regionName: String(region.Name || "")
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+
+    return rows;
+  }
+
   async function fetchJson(url) {
     if (!url) throw new Error("Missing URL to fetch JSON.");
     var response = await fetch(url, { method: "GET", credentials: "same-origin" });
@@ -1812,6 +1874,14 @@ async function readClientDB(options = {}) {
       delayMs: 1500,
       label: "schedule"
     });
+
+    // Config tool only (hotspot authoring): full page/region list, not persisted to idb.
+    try {
+      window.TrmRegions = extractAllRegionsFromSchedule(scheduleData);
+    } catch (err) {
+      console.error("Failed to extract full region list for CF config tool:", err);
+    }
+
     var resolvedPricingUrl = getPricingUrl(resolvedScheduleUrl);
 
     var pricingData = null;

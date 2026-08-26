@@ -404,10 +404,13 @@
         return levels.filter(function (lvl) { return order.indexOf(lvl) >= effIdx; });
     }
 
-    function saveAtLevel(level) {
+    function saveAtLevel(level, onParentResolved) {
         return ensureParent().then(function (parent) {
             if (!parent || !parent.id) {
                 throw new Error("Unable to resolve the hotspot menu item for saving.");
+            }
+            if (typeof onParentResolved === "function") {
+                onParentResolved();
             }
             return writeDetail(level);
         });
@@ -575,10 +578,19 @@
 
     function showStatus(message, isError) {
         var host = getModalDocument();
-        var status = host.querySelector("#hotspot-authoring-status");
+        var status = host.querySelector("[data-hs-status]");
         if (status) {
             status.textContent = message;
-            status.className = isError ? "hotspot-status error" : "hotspot-status";
+            status.className = isError ? "hs-status error" : "hs-status";
+        }
+    }
+
+    function showOverviewStatus(message, isError) {
+        var host = getModalDocument();
+        var status = host.querySelector("[data-hs-status-overview]");
+        if (status) {
+            status.textContent = message;
+            status.className = isError ? "hs-status error" : "hs-status";
         }
     }
 
@@ -686,6 +698,7 @@
           + "</div>"
           + "<div class='hs-foot'>"
           +   "<div class='hs-foot-overview' data-foot='overview' style='flex-direction:column'>"
+          +     "<div class='hs-status' data-hs-status-overview></div>"
           +     "<button type='button' class='hs-btn hs-primary hs-block' data-hs='saveDoc' disabled>Save changes</button>"
           +     "<button type='button' class='hs-btn hs-ghost hs-block' data-hs='create'><span class='material-icons'>add</span>Create hotspot</button>"
           +     "<button type='button' class='hs-btn hs-ghost hs-block' data-hs='removeOverride' style='display:none'></button>"
@@ -785,6 +798,8 @@
             ".hs-hint{margin:8px 0 0;font-size:12px;color:#7a8b90}",
             ".hs-status{margin:8px 0 0;font-size:13px;min-height:1em}",
             ".hs-status.error{color:#b23a3a}",
+            "@keyframes hs-pulse{0%,100%{opacity:1}50%{opacity:.55}}",
+            ".hs-btn.hs-busy{animation:hs-pulse 1.1s ease-in-out infinite}",
             ".hs-foot{padding:12px 14px;border-top:1px solid #eef2f4;background:#fafcfc}",
             ".hs-foot-overview,.hs-foot-editor{display:flex;align-items:center;gap:8px}",
             ".hs-foot-editor[hidden],.hs-foot-overview[hidden]{display:none}",
@@ -1191,21 +1206,27 @@
         }
         var level = state.saveLevel || "Concept";
         if (allowedSaveLevels().indexOf(level) < 0) {
-            window.alert("A " + state.effectiveLevel + " override is in place. Remove it before saving to " + level + ".");
+            showOverviewStatus("A " + state.effectiveLevel + " override is in place. Remove it before saving to " + level + ".", true);
             return;
         }
-        var $btn = $(ensureModal()).find("[data-hs='saveDoc']");
-        $btn.prop("disabled", true).text("Saving\u2026");
-        saveAtLevel(level).then(function () {
+        var $modal = $(ensureModal());
+        var $btn = $modal.find("[data-hs='saveDoc']");
+        var needsId = !(state.parent && state.parent.id) && !locateParent();
+        showOverviewStatus("", false);
+        $btn.prop("disabled", true).addClass("hs-busy").text(needsId ? "Creating ID\u2026" : "Saving\u2026");
+        saveAtLevel(level, function () {
+            $btn.text("Saving\u2026");
+        }).then(function () {
             state.savedDocument = cloneDocument(state.document);
             return resolveEffectiveDetail();
         }).then(function () {
-            $btn.text("Save changes");
+            $btn.removeClass("hs-busy").text("Save changes");
+            showOverviewStatus("", false);
             renderOverview();
         }).catch(function (error) {
-            $btn.text("Save changes");
-            window.alert(error && error.message ? error.message : "Unable to save changes.");
-            updateOverviewButtons();
+            $btn.removeClass("hs-busy").text("Save changes");
+            showOverviewStatus(error && error.message ? error.message : "Unable to save changes.", true);
+            updateOverviewButtons($modal);
         });
     }
 
@@ -1391,10 +1412,14 @@
     }
 
     function onAssets(assets) {
-        state.pages = [{ id: 1, name: "Home" }];
+        // Home (1) and idle (80) are fixed roles, shared with menuLayout.js; idle is never a
+        // selectable target page since it's only ever shown automatically via the idle overlay.
+        var homeLayerId = (window.WandLayoutLayers && window.WandLayoutLayers.HOME) || 1;
+        var idleLayerId = (window.WandLayoutLayers && window.WandLayoutLayers.IDLE) || 80;
+        state.pages = [{ id: homeLayerId, name: "Home" }];
         (Array.isArray(assets) ? assets : []).forEach(function (asset) {
             var id = numberOrNull(asset && (asset.layerZOrder !== undefined ? asset.layerZOrder : asset.ZOrder));
-            if (!id || state.pages.some(function (page) { return page.id === id; })) {
+            if (!id || id === idleLayerId || state.pages.some(function (page) { return page.id === id; })) {
                 return;
             }
             state.pages.push({
@@ -1406,7 +1431,7 @@
         // so pages with no currently-engaged content still show up for authoring.
         (Array.isArray(window.TrmRegions) ? window.TrmRegions : []).forEach(function (region) {
             var id = numberOrNull(region && region.layerZOrder);
-            if (!id || state.pages.some(function (page) { return page.id === id; })) {
+            if (!id || id === idleLayerId || state.pages.some(function (page) { return page.id === id; })) {
                 return;
             }
             state.pages.push({

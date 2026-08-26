@@ -2,6 +2,10 @@
 //Publisher: Wand Digital
 //Date: 05.30.2025
 //Version: 61.0
+// Single source of truth for the app's fixed layer roles, shared with hotspot_controller.js:
+// the home screen always starts on layer 1, and the idle/attract layer is always layer 80
+// (it is never a navigable page, even though both are still authored/referenced as named pages).
+window.WandLayoutLayers = window.WandLayoutLayers || { HOME: 1, IDLE: 80 };
 var IMSintegration;
 (function (wandDigital) {
     var MenuLayout = (function () {
@@ -10,10 +14,11 @@ var IMSintegration;
             this.playlist = false;
             this.isRotating = false;
             this.navigationHistory = [];
-            this.currentLayerId = 1;
+            this.homeLayerId = window.WandLayoutLayers.HOME;
+            this.currentLayerId = this.homeLayerId;
             this._coreInitialized = false;
             this.homeIdleDelayMs = 30000;
-            this.homeIdleLayer = 80;
+            this.homeIdleLayer = window.WandLayoutLayers.IDLE;
             this.homeIdleTimer = null;
             this.isHomeIdleOverlayActive = false;
             this.homeIdleAssets = [];
@@ -440,12 +445,14 @@ var IMSintegration;
         };
         MenuLayout.prototype.getDiscoveredLayers = function (TRMAssetZones) {
             var _this = this;
-            var discovered = { 1: true };
+            var discovered = {};
+            discovered[this.homeLayerId] = true;
 
             (Array.isArray(TRMAssetZones) ? TRMAssetZones : [])
                 .map(function (asset) { return _this.normalizeTRMAsset(asset); })
                 .forEach(function (asset) {
-                    if (asset && asset.layer > 0) {
+                    // The idle layer is rendered only via the home idle overlay, never as its own page.
+                    if (asset && asset.layer > 0 && asset.layer !== _this.homeIdleLayer) {
                         discovered[asset.layer] = true;
                     }
                 });
@@ -456,9 +463,9 @@ var IMSintegration;
                 .sort(function (a, b) { return a - b; });
         };
         MenuLayout.prototype.ensureLayerPage = function (layerId) {
-            if (!layerId || layerId === 1) {
-                if (!$('#layer_1_hotspots').length) {
-                    $('#layer_1_home').append('<div id="layer_1_hotspots" class="hotspot-layer" aria-label="Layer 1 click areas"></div>');
+            if (!layerId || layerId === this.homeLayerId) {
+                if (!$('#layer_' + this.homeLayerId + '_hotspots').length) {
+                    $('#layer_' + this.homeLayerId + '_home').append('<div id="layer_' + this.homeLayerId + '_hotspots" class="hotspot-layer" aria-label="Layer ' + this.homeLayerId + ' click areas"></div>');
                 }
                 return;
             }
@@ -709,10 +716,10 @@ var IMSintegration;
                 console.warn("No TRM asset zones provided.");
             }
             if (!this.toPositiveInt(this.currentLayerId)) {
-                this.currentLayerId = 1;
+                this.currentLayerId = this.homeLayerId;
             }
-            if (this.currentLayerId !== 1 && !$('#' + this.getLayerPageId(this.currentLayerId)).length) {
-                this.currentLayerId = 1;
+            if (this.currentLayerId !== this.homeLayerId && !$('#' + this.getLayerPageId(this.currentLayerId)).length) {
+                this.currentLayerId = this.homeLayerId;
                 this.navigateToWelcome();
             }
         };
@@ -918,13 +925,13 @@ var IMSintegration;
                 return;
             }
 
-            if (resolvedLayer === 1) {
+            if (resolvedLayer === this.homeLayerId) {
                 if (resetHistory) {
                     this.navigationHistory = [];
                 }
-                this.currentLayerId = 1;
+                this.currentLayerId = this.homeLayerId;
                 this.navigateToWelcome();
-                window.dispatchEvent(new CustomEvent("trm:layerChanged", { detail: { layerId: 1 } }));
+                window.dispatchEvent(new CustomEvent("trm:layerChanged", { detail: { layerId: this.homeLayerId } }));
                 return;
             }
 
@@ -1021,8 +1028,8 @@ var IMSintegration;
 
             // Show welcome screen
             $('.home').show();
-            this.currentLayerId = 1;
-            this.startMediaPlaylist($('#layer_1_content_background'));
+            this.currentLayerId = this.homeLayerId;
+            this.startMediaPlaylist($('#layer_' + this.homeLayerId + '_content_background'));
 
             // Clear navigation history
             this.navigationHistory = [];

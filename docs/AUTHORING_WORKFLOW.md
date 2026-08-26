@@ -15,6 +15,8 @@ The runtime looks for `layer` or `page` followed by digits in the file name and 
 
 TRM zones should set `layerZOrder` to the matching layer id.
 
+**Zone placement is critical:** any TRM zone that only feeds data/media into this app (i.e. is not meant to be its own visible box in the CMS design) must be positioned off-canvas — at least `1220px` to the left of the visible canvas (`x <= -1220`). A zone left on-canvas renders on top of the touchscreen app and covers it, blocking touch interaction.
+
 For each interactive region, author a `clickArea` with:
 
 - `x`, `y`, `width`, `height`

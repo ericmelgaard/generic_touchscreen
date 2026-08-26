@@ -99,3 +99,4 @@ Use this when configuring CMS/TRM teams:
 3. Treat nested navigation as layer chains (`1 -> 20 -> 35 -> 50`).
 4. Use debug labels (`Lx -> Ly`) to confirm source/destination mapping.
 5. Do not create static destination pages in markup; runtime creates them.
+6. Position any data-only TRM zone (not meant to be seen directly) at least `1220px` off-canvas to the left (`x <= -1220`); otherwise it renders over the touchscreen app and covers it.

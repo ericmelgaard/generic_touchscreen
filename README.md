@@ -33,6 +33,7 @@ If you are migrating an existing asset:
 3. Ensure TRM asset zones use the intended numeric layer id (`layerZOrder`).
 4. Ensure TRM asset media is assigned to the correct `layerZOrder` for each destination layer.
 5. Validate with hotspot debug (`Alt+H`) and confirm labels (`Lx -> Ly`).
+6. Position any TRM zone that only supplies data/media (not meant to be visible on its own) at least `1220px` to the left of the canvas (`x <= -1220`); an on-canvas zone renders on top of the app and covers it, blocking touch input.
 
 ## Required CMS Data
 
